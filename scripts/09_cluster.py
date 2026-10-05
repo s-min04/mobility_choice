@@ -11,6 +11,9 @@
     지형   경사 8% 이상 비율
 - K-평균. 군집 수는 3~9개 중 실루엣 지수, Ward 계층 군집과의 일치도(ARI), 부트스트랩 안정성을 보고 정한다.
 - 유형 이름은 군집별 평균 특징(표준점수)을 보고 붙였다. 군집 번호는 고령자 차량 분담률이 낮은 순서로 정렬해 고정한다.
+- 동별 확신도(합의 군집): 동의 80%를 뽑아 군집하기를 300번 반복해, 각 동이 자기 유형의 다른 동들과 같은 군집에
+  묶인 비율의 평균을 구한다. 0.8 이상 = 핵심 동, 0.7~0.8 = 보통, 0.7 미만 = 경계 동.
+  경계 동에는 두 번째로 자주 함께 묶인 유형을 같이 적는다.
 """
 
 import json
@@ -72,6 +75,7 @@ POLICY = {
        "복지관·병원 등 목적지 연계 외출 지원",
     4: "탄소 감축 우선: 차량 이동을 대중교통으로 돌릴 간선·광역 버스 공급, 고령화 대비 선제적 노선 확보",
 }
+TIER = {0: 3, 1: 2, 2: 4, 3: 1, 4: 2}  # 정책 우선순위 (1 = 최우선)
 COLORS = {0: "#4299e1", 1: "#9f7aea", 2: "#a0aec0", 3: "#e53e3e", 4: "#ed8936"}
 
 
@@ -126,7 +130,9 @@ def cluster_stability(Z: np.ndarray, labels: np.ndarray, n=200) -> pd.Series:
 
 def fig_map(d: gpd.GeoDataFrame, path: Path):
     fig, ax = plt.subplots(figsize=(9, 7.5))
-    d.plot(color=d["cluster"].map(COLORS), ax=ax, edgecolor="white", linewidth=0.2)
+    core = d["certainty"] == "핵심"
+    d[core].plot(color=d.loc[core, "cluster"].map(COLORS), ax=ax, edgecolor="white", linewidth=0.2)
+    d[~core].plot(color=d.loc[~core, "cluster"].map(COLORS), ax=ax, edgecolor="white", linewidth=0.2, alpha=0.4)
     d[d["b_priority"]].boundary.plot(ax=ax, color="black", linewidth=0.9)
     d[d["a_overlap10"]].plot(ax=ax, facecolor="none", edgecolor="black", hatch="///", linewidth=0)
     gu = d.dissolve("gu")
@@ -139,6 +145,8 @@ def fig_map(d: gpd.GeoDataFrame, path: Path):
     handles += [plt.Rectangle((0, 0), 1, 1, facecolor="none", edgecolor="black"),
                 plt.Rectangle((0, 0), 1, 1, facecolor="none", edgecolor="black", hatch="///")]
     labels += ["B 우선지역 (검은 테두리)", "B·A 공통 사각지대 10개 동 (빗금)"]
+    handles += [plt.Rectangle((0, 0), 1, 1, color="#a0aec0", alpha=0.4)]
+    labels += [f"흐린 색: 유형 경계·보통 동 ({(~core).sum()}개, 합의 군집 확신도 0.8 미만)"]
     ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.02), ncol=2, fontsize=8.5, frameon=False)
     ax.set_title("고령자 이동 여건에 따른 서울 행정동 유형 (K-평균, 5개)", fontsize=12)
     ax.set_axis_off()
@@ -159,6 +167,26 @@ def fig_heatmap(zs: pd.DataFrame, prof: pd.DataFrame, path: Path):
     ax.set_title("유형별 특징 (빨강 = 서울 평균보다 높음, 파랑 = 낮음)", fontsize=11)
     fig.savefig(path, dpi=200, bbox_inches="tight")
     plt.close(fig)
+
+
+def consensus(Z: np.ndarray, labels: np.ndarray, n_rep=300, frac=0.8) -> pd.DataFrame:
+    rng = np.random.default_rng(SEED)
+    n = len(Z)
+    together = np.zeros((n, n))
+    sampled = np.zeros((n, n))
+    for b in range(n_rep):
+        idx = rng.choice(n, int(n * frac), replace=False)
+        lab = KMeans(K, n_init=5, random_state=b).fit(Z[idx]).labels_
+        together[np.ix_(idx, idx)] += lab[:, None] == lab[None, :]
+        sampled[np.ix_(idx, idx)] += 1
+    C = together / np.maximum(sampled, 1)
+    by_type = np.column_stack([C[:, labels == c].mean(axis=1) for c in range(K)])
+    own = by_type[np.arange(n), labels]
+    other = by_type.copy()
+    other[np.arange(n), labels] = -1
+    out = pd.DataFrame({"confidence": own, "second_type": other.argmax(axis=1), "second_score": other.max(axis=1)})
+    out["certainty"] = np.select([own >= 0.8, own >= 0.7], ["핵심", "보통"], default="경계")
+    return out
 
 
 def type_robustness(Z: np.ndarray, labels: np.ndarray) -> pd.DataFrame:
@@ -217,9 +245,48 @@ def main():
     prof.insert(0, "유형", [NAMES[c] for c in prof.index])
     prof["정책 처방"] = [POLICY[c] for c in prof.index]
     d["type_name"] = d["cluster"].map(NAMES)
-    focus = d[d["a_overlap10"] | d["a_elderly_only_not_rich"]][["gu", "dong", "type_name", "b_priority",
-                                                                 "a_overlap10", "a_elderly_only_not_rich"]]
-    print(focus.sort_values("type_name").to_string())
+    cons = consensus(Z, d["cluster"].to_numpy())
+    d[["confidence", "second_type", "second_score", "certainty"]] = cons.to_numpy()
+    d["confidence"] = d["confidence"].astype(float)
+    d["second_type_name"] = d["second_type"].astype(int).map(NAMES)
+    core = (d["certainty"] == "핵심").to_numpy()
+    cons_summary = {"핵심 동 비율": float(core.mean()), "보통 이상 비율": float((d["confidence"] >= 0.7).mean()),
+                    "실루엣(전체)": float(silhouette_score(Z, d["cluster"])),
+                    "실루엣(핵심 동만)": float(silhouette_score(Z[core], d["cluster"].to_numpy()[core]))}
+    print(json.dumps(cons_summary, ensure_ascii=False, indent=1))
+    prof["핵심 동"] = d[d["certainty"] == "핵심"].groupby("cluster").size()
+    prof["경계 동"] = d[d["certainty"] == "경계"].groupby("cluster").size()
+    prof[["핵심 동", "경계 동"]] = prof[["핵심 동", "경계 동"]].fillna(0).astype(int)
+    print(prof[["유형", "동수", "핵심 동", "경계 동"]].to_string())
+    focus = d[d["a_overlap10"] | d["a_elderly_only_not_rich"]][["gu", "dong", "type_name", "certainty", "confidence",
+                                                                 "second_type_name", "b_priority", "a_overlap10",
+                                                                 "a_elderly_only_not_rich"]]
+    focus.to_csv(TAB / "c6_focus_dongs.csv", encoding="utf-8-sig")
+    print(focus.sort_values("type_name").round(2).to_string())
+    # 경계 동 중 두 번째 후보 유형의 정책 우선순위가 달라 실제로 판단이 갈리는 동
+    bd = d[d["certainty"] == "경계"].copy()
+    bd["own_tier"] = bd["cluster"].map(TIER)
+    bd["second_tier"] = bd["second_type"].astype(int).map(TIER)
+    bd["tier_differs"] = bd["own_tier"] != bd["second_tier"]
+    bd["to_priority1"] = (bd["second_tier"] == 1) & (bd["own_tier"] != 1)
+    bd[["gu", "dong", "type_name", "confidence", "second_type_name", "own_tier", "second_tier", "tier_differs",
+        "to_priority1"]].sort_values("confidence").to_csv(TAB / "c7_boundary_dongs.csv", encoding="utf-8-sig")
+    cons_summary.update({"경계 동": int(len(bd)), "경계 동 중 정책 순위가 갈리는 동": int(bd["tier_differs"].sum()),
+                         "그중 두 번째 후보가 1순위 유형인 동": int(bd["to_priority1"].sum())})
+    print({k: cons_summary[k] for k in ["경계 동", "경계 동 중 정책 순위가 갈리는 동", "그중 두 번째 후보가 1순위 유형인 동"]})
+    print(bd.loc[bd["to_priority1"], ["gu", "dong", "type_name", "confidence"]].to_string())
+    # 최종 1순위 대상: 1순위 유형의 핵심 동은 확정, 경계 후보는 B·A 지표로 판정
+    d["a_low"] = res["type"].reindex(d.index).notna()  # A: 기대보다 6%p 이상 대중교통을 덜 탐
+    p1 = d["cluster"] == 3
+    cand = (p1 & (d["certainty"] != "핵심")) | ((d["certainty"] == "경계") & (d["second_type"].astype(int) == 3))
+    d["priority1"] = np.select([p1 & (d["certainty"] == "핵심"), cand & (d["b_priority"] | d["a_low"]), cand],
+                               ["확정 (핵심 동)", "추가 (경계·B/A 지표 충족)", "보류 (경계·지표 미충족)"], default="")
+    pr1 = d[d["priority1"] != ""].sort_values(["priority1", "pop_65_plus"], ascending=[True, False])
+    pr1[["gu", "dong", "type_name", "certainty", "confidence", "b_priority", "a_low", "pop_65_plus", "priority1"]] \
+        .to_csv(TAB / "c8_priority1_targets.csv", encoding="utf-8-sig")
+    cnt = pr1.groupby("priority1").agg(동수=("dong", "size"), 고령인구=("pop_65_plus", "sum"))
+    print(cnt.to_string())
+    cons_summary["1순위 대상"] = {k: {"동수": int(v["동수"]), "고령인구": int(v["고령인구"])} for k, v in cnt.iterrows()}
     fig_map(d, FIG / "c1_cluster_map.png")
     fig_heatmap(zs, prof, FIG / "c2_cluster_profile.png")
     rob = type_robustness(Z, d["cluster"].to_numpy())
@@ -228,12 +295,13 @@ def main():
     sel.to_csv(TAB / "c1_choose_k.csv", index=False, encoding="utf-8-sig")
     zs.to_csv(TAB / "c2_cluster_zscores.csv", encoding="utf-8-sig")
     prof.to_csv(TAB / "c3_cluster_profiles.csv", encoding="utf-8-sig")
-    d.drop(columns="geometry").reset_index()[["adm_cd10", "gu", "dong", "cluster", "pop_65_plus", "b_priority",
+    d.drop(columns="geometry").reset_index()[["adm_cd10", "gu", "dong", "cluster", "type_name", "certainty",
+                                              "confidence", "second_type_name", "pop_65_plus", "b_priority",
                                               "a_overlap10", "a_elderly_only_not_rich", *FEATURES]] \
         .to_csv(TAB / "c4_dong_clusters.csv", index=False, encoding="utf-8-sig")
     d[["gu", "dong", "cluster", "geometry"]].to_file(PROC / "dong_clusters.gpkg", driver="GPKG")
-    (TAB / "c_summary.json").write_text(json.dumps({"k": K, "stability": stab.to_dict()}, ensure_ascii=False,
-                                                   indent=2, default=float))
+    (TAB / "c_summary.json").write_text(json.dumps({"k": K, "stability": stab.to_dict(), "consensus": cons_summary},
+                                                   ensure_ascii=False, indent=2, default=float))
 
 
 if __name__ == "__main__":
