@@ -178,6 +178,7 @@ def slope_by_dong(dongs: gpd.GeoDataFrame) -> pd.DataFrame:
     pts = gpd.GeoSeries(gpd.points_from_xy(grid["x"], grid["y"]), crs="EPSG:5179").to_crs("EPSG:4326")
     rows, cols = rasterio.transform.rowcol(tr, pts.x.values, pts.y.values)
     grid = grid.assign(slope=slope[np.array(rows), np.array(cols)], elev=dem[np.array(rows), np.array(cols)])
+    grid[["adm_cd10", "x", "y", "slope", "elev"]].to_parquet(PROC / "grid_slope.parquet")  # 08 역 단위 검증에서 쓴다
     g = grid.groupby("adm_cd10")
     return pd.DataFrame({"slope_mean": g["slope"].mean(), "slope_p75": g["slope"].quantile(0.75),
                          "steep_share": g["slope"].apply(lambda s: (s >= 8).mean()),  # 8% 이상 = 휠체어 경사로 기준 초과

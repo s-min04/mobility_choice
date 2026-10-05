@@ -16,6 +16,7 @@ python -m venv .venv
 .venv/bin/python scripts/05_taxi_call_trend.py # 동행 온다 콜택시 이용 추이 (기사 수치)
 .venv/bin/python scripts/06_build_usage.py    # A: 고령자 실제 이동(생활이동)·외출·경사
 .venv/bin/python scripts/07_model_usage.py    # A: B 검증, 기대 대비 실제(랜덤포레스트), SHAP, 외출 회귀 (약 4분)
+.venv/bin/python scripts/08_verify_elderly.py # A: 교통카드 실측(역별 무임 승차)·자동차 등록으로 고령자 특유 불리함 재검정
 ```
 
 Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!python scripts/...` 를 실행한다.
@@ -94,3 +95,11 @@ Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!
 - 기대값: 공급 조건 10개 → 랜덤포레스트 5겹 교차검증 표본 밖 예측(5회 평균). 잔차는 동네 전체 몫(청장년 잔차)과 고령자만의 몫으로 나눈다.
 - 산출물: `outputs/figures/a1_validation.png`, `a2_shap.png`, `a3_residual_map.png`, `a4_income_outing.png`, `outputs/tables/a*.csv`
   (소득 없는 모델 결과는 `a2_expected_vs_actual_no_income.csv`, 우선지역 견고성은 `a5_priority_robustness.csv`)
+
+### A 검증 (08)
+
+- **역 단위 검정:** 거주 격자를 가장 가까운 역에 배정해 역세권 인구를 만든다(1.5km 이내).
+  - 고령자 상대 이용률 = (무임÷유임 승차) ÷ (역세권 65세 이상÷65세 미만)
+  - 이 값을 역세권 고령자의 거리 구간(369~554m, 554m 밖)과 경사 8% 이상 비율로 회귀한다. 표본 6가지, HC1.
+- **부촌 검정:** 행정동별 자가용 승용차(인구 1,000명당)와 '고령자만 덜 탐' 잔차의 관계를 본다.
+- **산출물:** `outputs/figures/a5_station_test.png`, `outputs/tables/a7_*.csv`, `a8_*.csv`
