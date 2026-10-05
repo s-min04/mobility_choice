@@ -13,6 +13,7 @@ python -m venv .venv
 .venv/bin/python scripts/02_build_index.py   # 100m 격자 → 행정동 지수
 .venv/bin/python scripts/03_analysis.py      # 격차 분해, LISA, 민감도, 택시 참고값, 그림
 .venv/bin/python scripts/04_pm_obstruction.py # 공유 전동킥보드 보행 방해
+.venv/bin/python scripts/05_taxi_call_trend.py # 동행 온다 콜택시 이용 추이 (기사 수치)
 ```
 
 Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!python scripts/...` 를 실행한다.
@@ -66,6 +67,7 @@ Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!
 | `outputs/tables/b3_sensitivity.csv` | 민감도 분석 |
 | `outputs/tables/b4_taxi_reference.csv` | 참고: 택시를 넣을 경우 (앱 가능/불가 고령자) |
 | `outputs/figures/b5_pm_obstruction.png`, `outputs/tables/b5_pm_*.csv` | 공유 전동킥보드 기기 추이와 견인 유형 |
+| `outputs/figures/b6_taxi_call_trend.png`, `outputs/tables/b6_taxi_call.json` | 동행 온다 콜택시 월 이용 추이와 비교 수치 (공개 데이터가 없어 기사 수치, 출처는 스크립트에 기록) |
 | `outputs/tables/b_summary.json` | 주요 수치 요약 |
 | `data/processed/dong_mci_lisa.gpkg` | 행정동 경계와 전체 지표 (QGIS에서 바로 열림) |
 
