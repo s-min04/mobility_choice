@@ -1,6 +1,6 @@
 # B. 이동선택권 지수와 고령자 이동 사각지대
 
-서울 행정동마다 "실제로 쓸 수 있는 교통수단(지하철·버스·따릉이·택시)이 몇 개인가"를 일반 성인 기준과 고령자(65세 이상) 기준으로 각각 계산하고, 고령자 기준으로 선택권이 낮은 지역이 어디에 몰려 있는지 찾는다. 공유 전동킥보드는 고령자의 수단이 아니라 보행을 막는 요인으로 따로 본다.
+서울 행정동마다 "실제로 쓸 수 있는 대중교통 수단(지하철·버스·따릉이)이 몇 개인가"를 일반 성인 기준과 고령자(65세 이상) 기준으로 각각 계산하고, 고령자 기준으로 선택권이 낮은 지역이 어디에 몰려 있는지 찾는다. 택시는 요금 때문에 매일 쓸 수 있는 선택지로 보기 어려워 지수에서 빼고 참고값으로만 계산한다. 공유 전동킥보드는 고령자의 수단이 아니라 보행을 막는 요인으로 따로 본다.
 
 ## 실행
 
@@ -11,7 +11,7 @@ python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python scripts/01_download.py      # 원본 데이터 14종 (약 140MB)
 .venv/bin/python scripts/02_build_index.py   # 100m 격자 → 행정동 지수
-.venv/bin/python scripts/03_analysis.py      # 격차 분해, LISA, 민감도, 정책 시나리오, 그림
+.venv/bin/python scripts/03_analysis.py      # 격차 분해, LISA, 민감도, 택시 참고값, 그림
 .venv/bin/python scripts/04_pm_obstruction.py # 공유 전동킥보드 보행 방해
 ```
 
@@ -44,13 +44,11 @@ Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!
    - 지하철: 10분 보행권 안에 역이 있으면 1
    - 버스: 5분 보행권 안 정류소를 지나는 서로 다른 노선 수 ÷ 기준 노선 수(서울 중앙값 7개), 최대 1
    - 따릉이: 5분 보행권 안에 대여소가 있으면 1
-   - 택시: 앱 호출 가능 비율 p + (1−p) × [5분 보행권 안에 간선도로(trunk·primary·secondary)가 있음]
-3. 이동선택권 지수 MCI = 네 값의 합(0~4).
-4. 고령자 기준은 세 가지만 바꾼다.
+3. 이동선택권 지수 MCI = 세 값의 합(0~3).
+4. 고령자 기준은 두 가지만 바꾼다.
    - 보행속도: 1.2 → 0.8 m/s
    - 따릉이 연령 가중치 β: 65세 이상 인구 1인당 이용건수 ÷ 20~59세 인구 1인당 이용건수 = **0.115**
-   - 택시 앱 호출 가능 비율 p: 1 → 0.19
-5. 행정동 값은 거주 가능 격자점의 평균이다. 사각지대는 MCI가 2 미만인 곳, 즉 고를 수 있는 선택지가 없는 곳이다. 동 안에서 고령자가 고르게 산다고 보고, 사각지대 격자 비율로 사각지대 고령인구를 추정한다.
+5. 행정동 값은 거주 가능 격자점의 평균이다. 사각지대는 MCI가 1 미만인 곳, 즉 제대로 쓸 수 있는 대중교통 수단이 하나도 없는 곳이다. 동 안에서 고령자가 고르게 산다고 보고, 사각지대 격자 비율로 사각지대 고령인구를 추정한다.
 6. 공간 분석은 Queen 인접 가중치를 쓴다. 전역 Moran's I, 국지적 Moran(LISA), 이변량 LISA(고령인구 비율 × 이동선택권)를 계산하고, 999회 순열검정에서 p<0.05인 경우만 군집으로 본다.
 
 가정값은 `02_build_index.py`의 `PARAMS`에 모아 두었고, 바꿔 가며 확인한 결과는 `outputs/tables/b3_sensitivity.csv`에 있다.
@@ -64,9 +62,9 @@ Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!
 | `outputs/figures/b3_lisa_clusters.png` | LISA 군집 지도와 이변량 LISA 지도 |
 | `outputs/tables/b0_dong_mci_all.csv` | 427개 행정동 전체 지표 |
 | `outputs/tables/b1_gap_decomposition.csv` | 격차 분해 표 |
-| `outputs/tables/b2_priority_dongs.csv` | 우선지역 22개 동 |
+| `outputs/tables/b2_priority_dongs.csv` | 우선지역 25개 동 |
 | `outputs/tables/b3_sensitivity.csv` | 민감도 분석 |
-| `outputs/tables/b4_policy_taxi_call.csv` | 전화 호출 택시(동행 온다 콜택시) 확산 시나리오 |
+| `outputs/tables/b4_taxi_reference.csv` | 참고: 택시를 넣을 경우 (앱 가능/불가 고령자) |
 | `outputs/figures/b5_pm_obstruction.png`, `outputs/tables/b5_pm_*.csv` | 공유 전동킥보드 기기 추이와 견인 유형 |
 | `outputs/tables/b_summary.json` | 주요 수치 요약 |
 | `data/processed/dong_mci_lisa.gpkg` | 행정동 경계와 전체 지표 (QGIS에서 바로 열림) |
@@ -78,5 +76,5 @@ Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!
 - 지하철역의 엘리베이터 유무, 저상버스 비율 같은 고령자 접근 조건도 빠져 있다.
 - 동 안의 고령인구 분포를 균등하다고 가정했다.
 - 따릉이 β는 서울 전체 값 하나다. 대여소마다 고령자 이용률이 다를 수 있다.
-- 택시는 간선도로 근처면 길에서 잡을 수 있다고 보았다. 실제 빈 택시 통행량, 배차 실패, 요금 부담은 반영하지 않았다.
+- 택시 참고값은 간선도로(trunk·primary·secondary) 근처면 길에서 잡을 수 있다고 보았다. 실제 빈 택시 통행량, 배차 실패, 요금 부담은 반영하지 않았다.
 - 킥보드 견인 건수는 자치구의 견인 시행 여부와 기록 방식에 좌우된다 (예: 강남구는 2,401건 모두 '차도', 종로·성북구는 거의 0건).

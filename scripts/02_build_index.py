@@ -8,13 +8,14 @@
     지하철  : 보행 시간 안에 역이 있으면 1
     버스    : 보행 시간 안의 정류소를 지나는 서로 다른 노선 수 / 기준 노선 수 (최대 1)
     따릉이  : 보행 시간 안에 대여소가 있으면 1. 고령자 기준에서는 연령별 실제 이용률 비(β)를 곱한다.
-    택시    : 앱 호출을 쓸 수 있는 비율 p 는 어디서나 1, 나머지 (1-p) 는 걸어서 큰길(간선도로)에 닿아야 1.
-              a = p + (1-p) × [보행 시간 안에 간선도로가 있음]
-- MCI = a_지하철 + a_버스 + a_따릉이 + a_택시 (0~4). "실제로 쓸 수 있는 교통수단이 몇 개인가"를 뜻한다.
-- 일반 성인 기준과 고령자(65세 이상) 기준을 따로 계산한다. 두 기준은 보행속도, 따릉이 가중치, 택시 앱 호출 비율만 다르다.
+- MCI = a_지하철 + a_버스 + a_따릉이 (0~3). "실제로 쓸 수 있는 교통수단이 몇 개인가"를 뜻한다.
+- 일반 성인 기준과 고령자(65세 이상) 기준을 따로 계산한다. 두 기준은 보행속도와 따릉이 가중치만 다르다.
+- 택시는 요금 때문에 매일 쓸 수 있는 선택지로 보기 어려워 MCI 에 넣지 않는다. 대신 참고값으로 따로 계산한다.
+    택시 이용가능도 = 앱으로 부를 수 있으면 어디서나 1, 앱을 못 쓰면 걸어서 큰길(간선도로)에 닿아야 1
+    mci_taxi_* : MCI + 택시 (일반 성인, 앱 가능 고령자, 앱 불가 고령자)
 - 공유 전동킥보드는 위치·연령별 이용 자료가 없고 면허가 필요해 지수에 넣지 않는다 (04_pm_obstruction.py 에서 보행 방해 요인으로 따로 본다).
 - 행정동 값 = 그 동의 거주 가능 격자점 평균.
-- 사각지대 = MCI 가 2 미만인 곳 (고를 수 있는 선택지가 없는 곳).
+- 사각지대 = MCI 가 1 미만인 곳 (제대로 쓸 수 있는 대중교통 수단이 하나도 없는 곳).
 
 모든 가정값은 PARAMS 에 모아 두었다. 근거를 확인해야 하는 값은 주석에 (근거 확인 필요) 로 표시했다.
 """
@@ -45,14 +46,13 @@ PARAMS = {
     "detour": 1.3,
     # 버스 기준 노선 수: None 이면 일반 성인 기준 서울 격자점의 중앙값을 쓴다
     "bus_target_routes": None,
-    # 택시를 앱으로 부를 수 있는 비율. 일반 성인은 1로 본다.
-    # 고령자는 서울연구원 「2024년 택시 이용 시민만족도 조사」의 60세 이상 앱 호출 비율 19% (기사 재인용, 원문 확인 필요)
-    "taxi_app_share": {"general": 1.0, "elderly": 0.19},
-    # 길에서 빈 택시를 잡을 수 있다고 보는 도로 등급 (OSM highway)
+    # (참고값) 택시를 앱으로 부를 수 있는 고령자 비율: 서울연구원 「2024년 택시 이용 시민만족도 조사」의
+    # 60세 이상 앱 호출 비율 19% (기사 재인용, 원문 확인 필요)
+    "taxi_app_share_elderly": 0.19,
+    # (참고값) 길에서 빈 택시를 잡을 수 있다고 보는 도로 등급 (OSM highway)
     "taxi_road_classes": ["trunk", "primary", "secondary"],
-    # 사각지대 기준: 쓸 수 있는 수단이 이 값 미만이면 "고를 수 있는 선택지"가 없는 곳으로 본다.
-    # 선택권은 최소 두 수단 중에서 고를 수 있어야 성립한다 (택시 하나뿐이면 비싼 수단 하나에 묶인 상태).
-    "choice_threshold": 2.0,
+    # 사각지대 기준: MCI 가 이 값 미만이면 제대로 쓸 수 있는 대중교통 수단이 없는 곳
+    "choice_threshold": 1.0,
 }
 
 
@@ -242,18 +242,19 @@ def main():
     for prof in ["general", "elderly"]:
         grid[f"a_bus_{prof}"] = np.minimum(grid[f"bus_routes_{prof}"] / target, 1.0)
         grid[f"a_bike_{prof}"] = grid[f"bike_{prof}"] * beta[prof]
-        app = PARAMS["taxi_app_share"][prof]
-        grid[f"a_taxi_{prof}"] = app + (1 - app) * grid[f"taxi_street_{prof}"]
-        grid[f"mci_{prof}"] = (grid[f"subway_{prof}"] + grid[f"a_bus_{prof}"] + grid[f"a_bike_{prof}"]
-                               + grid[f"a_taxi_{prof}"])
+        grid[f"mci_{prof}"] = grid[f"subway_{prof}"] + grid[f"a_bus_{prof}"] + grid[f"a_bike_{prof}"]
+    # 참고: 택시를 넣으면 (일반 성인은 앱으로 어디서나 호출, 고령자는 앱 가능/불가로 나눔)
+    grid["mci_taxi_general"] = grid["mci_general"] + 1.0
+    grid["mci_taxi_elderly_app"] = grid["mci_elderly"] + 1.0
+    grid["mci_taxi_elderly_noapp"] = grid["mci_elderly"] + grid["taxi_street_elderly"]
     print(f"  버스 기준 노선 수 = {target:g}")
 
     # 행정동 집계 (거주 가능 격자점 평균)
     g = grid[hab]
     cols = [c for c in grid.columns
-            if c.startswith(("subway_", "a_bus_", "a_bike_", "a_taxi_", "taxi_street_", "mci_", "bus_routes_"))]
+            if c.startswith(("subway_", "a_bus_", "a_bike_", "taxi_street_", "mci_", "bus_routes_"))]
     agg = g.groupby("adm_cd10")[cols].mean()
-    # 쓸 수 있는 수단이 기준(2개) 미만인 격자점 비율 → 동 안에서 고령자가 고르게 산다고 보고 사각지대 고령인구 추정
+    # 쓸 수 있는 수단이 기준(1개) 미만인 격자점 비율 → 동 안에서 고령자가 고르게 산다고 보고 사각지대 고령인구 추정
     th = PARAMS["choice_threshold"]
     agg["share_blind_elderly"] = g.assign(b=g["mci_elderly"] < th).groupby("adm_cd10")["b"].mean()
     agg["share_blind_general"] = g.assign(b=g["mci_general"] < th).groupby("adm_cd10")["b"].mean()

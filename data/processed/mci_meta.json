@@ -13,16 +13,13 @@
     },
     "detour": 1.3,
     "bus_target_routes": null,
-    "taxi_app_share": {
-      "general": 1.0,
-      "elderly": 0.19
-    },
+    "taxi_app_share_elderly": 0.19,
     "taxi_road_classes": [
       "trunk",
       "primary",
       "secondary"
     ],
-    "choice_threshold": 2.0
+    "choice_threshold": 1.0
   },
   "bus_target_routes_used": 7.0,
   "bike_age_factor": {
