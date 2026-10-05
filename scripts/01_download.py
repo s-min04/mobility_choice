@@ -50,6 +50,76 @@ SEOUL_FILES = [
      "서울시 민간대여 공유 전동킥보드 기기 현황_25.2월기준.csv", "2025-02"),
     ("pm_devices_2025dec", "서울시 공유 전동킥보드 운영 현황", "OA-22199", "1", "4",
      "서울시 민간대여 공유 전동킥보드 기기 현황_25.12월기준.csv", "2025-12"),
+    # D 보강: KT 생활이동 연령 × 수단 (겨울·여름 17개월) → 고령자 버스·차량·도보, 외출 포기 vs 수단 전환
+    ("life_move_mode_202301", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202301",
+     "seoul_trans_admdong1_in_202301.zip", "2023-01"),
+    ("life_move_mode_202302", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202302",
+     "seoul_trans_admdong1_in_202302.zip", "2023-02"),
+    ("life_move_mode_202307", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202307",
+     "seoul_trans_admdong1_in_202307.zip", "2023-07"),
+    ("life_move_mode_202308", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202308",
+     "seoul_trans_admdong1_in_202308.zip", "2023-08"),
+    ("life_move_mode_202312", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202312",
+     "seoul_trans_admdong1_in_202312.zip", "2023-12"),
+    ("life_move_mode_202401", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202401",
+     "seoul_trans_admdong1_in_202401.zip", "2024-01"),
+    ("life_move_mode_202402", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202402",
+     "seoul_trans_admdong1_in_202402.zip", "2024-02"),
+    ("life_move_mode_202407", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202407",
+     "seoul_trans_admdong1_in_202407.zip", "2024-07"),
+    ("life_move_mode_202408", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202408",
+     "seoul_trans_admdong1_in_202408.zip", "2024-08"),
+    ("life_move_mode_202412", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202412",
+     "seoul_trans_admdong1_in_202412.zip", "2024-12"),
+    ("life_move_mode_202501", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202501",
+     "seoul_trans_admdong1_in_202501.zip", "2025-01"),
+    ("life_move_mode_202502", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202502",
+     "seoul_trans_admdong1_in_202502.zip", "2025-02"),
+    ("life_move_mode_202507", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202507",
+     "seoul_trans_admdong1_in_202507.zip", "2025-07"),
+    ("life_move_mode_202508", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202508",
+     "seoul_trans_admdong1_in_202508.zip", "2025-08"),
+    ("life_move_mode_202512", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202512",
+     "seoul_trans_admdong1_in_202512.zip", "2025-12"),
+    ("life_move_mode_202601", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202601",
+     "seoul_trans_admdong1_in_202601.zip", "2026-01"),
+    ("life_move_mode_202602", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))", "OA-22655", "1", "202602",
+     "seoul_trans_admdong1_in_202602.zip", "2026-02"),
+    # D 보강: S-DoT 환경센서 (서울 전역 약 1,170곳, 시간별 기온) → 관측소 1곳 대신 동네별 기온
+    ("sdot_2023", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "2023",
+     "S-DoT_NATURE_2023.zip", "2023"),
+    ("sdot_2024", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "2024",
+     "S-DoT_NATURE_2024.zip", "2024"),
+    ("sdot_2025", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "2025",
+     "S-DoT_NATURE_2025.zip", "2025"),
+    ("sdot_20260119", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "20260119",
+     "S-DoT_NATURE_2026.01.05-01.11.csv", "2026.01.05-01.11"),
+    ("sdot_20260126", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "20260126",
+     "S-DoT_NATURE_2026.01.12-01.18.csv", "2026.01.12-01.18"),
+    ("sdot_20260202", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "20260202",
+     "S-DoT_NATURE_2026.01.19-01.25.csv", "2026.01.19-01.25"),
+    ("sdot_20260209", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "20260209",
+     "S-DoT_NATURE_2026.01.26-02.01.csv", "2026.01.26-02.01"),
+    ("sdot_20260216", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "20260216",
+     "S-DoT_NATURE_2026.02.02-02.08.csv", "2026.02.02-02.08"),
+    ("sdot_20260223", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "20260223",
+     "S-DoT_NATURE_2026.02.09-02.15.csv", "2026.02.09-02.15"),
+    ("sdot_20260302", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "20260302",
+     "S-DoT_NATURE_2026.02.16-02.22.csv", "2026.02.16-02.22"),
+    ("sdot_20260309", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "20260309",
+     "S-DoT_NATURE_2026.02.23-03.01.csv", "2026.02.23-03.01"),
+    ("sdot_20260316", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "20260316",
+     "S-DoT_NATURE_2026.03.02-03.08.csv", "2026.03.02-03.08"),
+    ("sdot_20260323", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "20260323",
+     "S-DoT_NATURE_2026.03.09-03.15.csv", "2026.03.09-03.15"),
+    ("sdot_20260330", "스마트서울 도시데이터 센서(S-DoT) 환경정보", "OA-15969", "3", "20260330",
+     "S-DoT_NATURE_2026.03.16-03.22.csv", "2026.03.16-03.22"),
+    ("sdot_locations", "스마트서울 도시데이터 센서(S-DoT) 환경정보 설치 위치", "OA-15969", "3", "100000001",
+     "서울시 도시데이터 센서(S-DoT) 환경정보 설치 위치정보.xlsx", "2026-03"),
+    # D 보강: 서울시 강우량계 (동네별 강수)
+    ("rain_2021_2024", "서울시 강우량 데이터", "OA-22715", "1", "3", "서울시 강우량 데이터(2021~2024).zip", "2021~2024"),
+    ("rain_2025", "서울시 강우량 데이터", "OA-22715", "1", "4", "서울시 강우량 데이터(2025).zip", "2025"),
+    ("rain_gauges", "서울시 강우량계 위치데이터", "OA-22824", "1", "2", "서울시 강우량계 위치정보.xlsx", "2026-09"),
     # A 분석: 도착 행정동 × 시간대 × 성·연령 × 이동수단 (서울시·KT 수도권 생활이동, 2026년 9월 일별 파일 묶음)
     ("life_move_mode_202609", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))",
      "OA-22655", "1", "202609", "seoul_trans_admdong1_in_202609.zip", "2026-09"),
@@ -85,7 +155,16 @@ DATA_GO_KR_FILES = [
     ("population", "행정안전부_지역별(행정동) 성별 연령별 주민등록 인구수", "15097972",
      "uddi:5beebd9e-8733-44f8-817f-9cfa03548b7a", "1",
      "지역별(행정동) 성별 연령별 주민등록 인구수_20260831.csv", "2026-08-31"),
-    # D 분석: 역별·일별·시간대별 승객유형(우대권 = 65세 이상 등)별 승하차, 반기별 파일 4개 (2024.7~2026.6)
+    # D 분석: 역별·일별·시간대별 승객유형(우대권 = 65세 이상 등)별 승하차, 반기별 파일 8개 (2022.7~2026.6)
+    # 파일 번호(detailSn)는 버전마다 CSV/JSON 순서가 달라 "auto" 로 CSV 가 나올 때까지 시도한다
+    ("subway_type_2022h2", STP[1], STP[0], "uddi:ef6b14a9-f9f5-4965-a49b-94f409115ca6", "auto",
+     "서울교통공사_역별일별시간대별승객유형별승하차_20221231.csv", "2022-07~12"),
+    ("subway_type_2023h1", STP[1], STP[0], "uddi:e78d89ab-938f-42ae-bc81-84477b03c764", "auto",
+     "서울교통공사_역별일별시간대별승객유형별승하차_20230630.csv", "2023-01~06"),
+    ("subway_type_2023h2", STP[1], STP[0], "uddi:b08fb029-4c0b-4e85-bf8c-ff96b0e155ca", "auto",
+     "서울교통공사_역별일별시간대별승객유형별승하차_20231231.csv", "2023-07~12"),
+    ("subway_type_2024h1", STP[1], STP[0], "uddi:45aa66a5-25a8-4ede-81b8-cce5140b619c", "auto",
+     "서울교통공사_역별일별시간대별승객유형별승하차_20240630.csv", "2024-01~06"),
     ("subway_type_2024h2", STP[1], STP[0], "uddi:b069b014-093b-4780-912d-e8aec3e4cfe4", "1",
      "서울교통공사_역별일별시간대별승객유형별승하차_20241231.csv", "2024-07~12"),
     ("subway_type_2025h1", STP[1], STP[0], "uddi:bef34229-dc1c-4509-8eb4-afd60a9b4be8", "1",
@@ -94,12 +173,24 @@ DATA_GO_KR_FILES = [
      "서울교통공사_역별일별시간대별승객유형별승하차_20251231.csv", "2025-07~12"),
     ("subway_type_2026h1", STP[1], STP[0], "uddi:5845041d-3a37-4c30-9142-e62d3b8816b8", "1",
      "서울교통공사_역별일별시간대별승객유형별승하차_20260630.csv", "2026-01~06"),
+    # D 분석: 9호선 2·3단계(언주~중앙보훈병원) 역별 일별 승객유형별 승하차
+    ("subway9_type", "서울교통공사_9호선 2_3단계 역별 일별 승객유형별 승하차인원", "15108374",
+     "uddi:310e9867-52b7-41fa-8318-a59b1f6799d6", "auto", "서울교통공사_9호선2_3단계_역별일별승객유형별승하차.zip", "2023~2026-07 (연도별 CSV 묶음)"),
 ]
 
 # D 분석: 서울 기상관측소(기상청 ASOS 108 = WMO 47108) 일자료. 기상자료개방포털은 로그인이 필요해
 # 같은 관측값을 NOAA 를 거쳐 제공하는 Meteostat 공개 파일을 쓴다 (컬럼: 날짜, 평균·최저·최고기온, 강수, 적설, ...)
 WEATHER = ("weather_seoul_daily", "서울 기상관측소 일자료 (Meteostat, WMO 47108)",
            "https://bulk.meteostat.net/v2/daily/47108.csv.gz", "meteostat_47108_daily.csv.gz", "")
+# 10년 월별 분석용: Meteostat 서울 관측소는 2017~2019년 최고기온·2022년 이전 강수가 대부분 비어 있어
+# 재분석 자료(ERA5, Open-Meteo, 키 불필요)를 받고 2021년 이후 관측값과 겹치는 구간으로 보정해 쓴다
+WEATHER_ERA5 = ("weather_seoul_era5", "서울 일별 기온·강수 재분석(ERA5, Open-Meteo) - 서울 관측소 좌표",
+                "https://archive-api.open-meteo.com/v1/archive?latitude=37.5714&longitude=126.9658"
+                "&start_date=2015-01-01&end_date=2026-09-30"
+                "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum&timezone=Asia%2FSeoul",
+                "openmeteo_era5_seoul_daily.json", "2015-01-01~2026-09-30")
+WEATHER2 = ("weather_gimpo_daily", "김포공항 기상관측소 일자료 (Meteostat, WMO 47110) - 교차 확인용",
+            "https://bulk.meteostat.net/v2/daily/47110.csv.gz", "meteostat_47110_daily.csv.gz", "")
 
 # 행정동 경계: 통계청 SGIS 경계를 행정안전부 10자리 코드와 맞춰 정리한 공개본
 BOUNDARY = ("dong_boundary", "대한민국 행정동 경계(admdongkor)",
@@ -177,7 +268,17 @@ def get_seoul_sheet(inf_id, order_by, path):
 
 
 def get_data_go_kr(pk, detail_pk, path, detail_sn="1"):
-    """포털 화면의 '다운로드' 버튼과 같은 순서로 요청한다. 캡차가 요구되면 멈추고 수동 다운로드를 안내한다."""
+    """포털 화면의 '다운로드' 버튼과 같은 순서로 요청한다. 캡차가 요구되면 멈추고 수동 다운로드를 안내한다.
+    detail_sn="auto" 면 1~4번 파일을 차례로 받아 CSV(첫 글자가 '[' 나 '{' 가 아닌 것)를 고른다."""
+    if detail_sn == "auto":
+        for sn in ["1", "2", "3", "4"]:
+            try:
+                get_data_go_kr(pk, detail_pk, path, sn)
+            except Exception:
+                continue
+            if path.read_bytes()[:1] not in (b"[", b"{"):
+                return
+        raise RuntimeError("CSV 파일을 찾지 못했다")
     info = session.post(f"{DATA_GO_KR}/tcs/dss/selectFileDataDownload.do", data={
         "publicDataDetailPk": detail_pk, "publicDataPk": pk, "atchFileId": "", "fileDetailSn": detail_sn,
         "publicDataTyCode": "PR0051"}, timeout=60).json()
@@ -230,9 +331,9 @@ def main():
         provider = "행정안전부" if key == "population" else "서울교통공사"
         jobs.append((key, name, provider, f"{DATA_GO_KR}/data/{pk}/fileData.do",
                      fname, ref, lambda p, a=(pk, detail_pk, sn): get_data_go_kr(a[0], a[1], p, a[2])))
-    key, name, url, fname, ref = WEATHER
-    jobs.append((key, name, "Meteostat (원자료: 기상청 관측, NOAA ISD/GHCN)", url, fname, ref,
-                 lambda p, u=url: get_url(u, p)))
+    for key, name, url, fname, ref in [WEATHER, WEATHER2, WEATHER_ERA5]:
+        jobs.append((key, name, "Meteostat (원자료: 기상청 관측, NOAA ISD/GHCN)", url, fname, ref,
+                     lambda p, u=url: get_url(u, p)))
     key, name, url, fname, ref = BOUNDARY
     jobs.append((key, name, "vuski/admdongkor (원자료: 통계청 SGIS)", url, fname, ref, lambda p, u=url: get_url(u, p)))
     key, name, fname = OSM_MASK

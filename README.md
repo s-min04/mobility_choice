@@ -18,8 +18,10 @@ python -m venv .venv
 .venv/bin/python scripts/07_model_usage.py    # A: B 검증, 기대 대비 실제(랜덤포레스트), SHAP, 외출 회귀 (약 4분)
 .venv/bin/python scripts/08_verify_elderly.py # A: 교통카드 실측(역별 무임 승차)·자동차 등록으로 고령자 특유 불리함 재검정
 .venv/bin/python scripts/09_cluster.py        # C: 행정동 유형 군집(K-평균 5개)과 정책 처방
-.venv/bin/python scripts/10_build_weather.py  # D: 역별·일별 우대권/일반 승차(서울교통공사)와 서울 날씨 맞추기
-.venv/bin/python scripts/11_weather_model.py  # D: 폭염·한파·큰비 효과, 시간대, 지역 차이, 쉼터 접근
+.venv/bin/python scripts/10_build_weather.py      # D: 1~8호선·9호선 일별 우대권/일반 승차, 서울·김포 관측소, 보정 ERA5
+.venv/bin/python scripts/12_build_kt_daily.py      # D: KT 생활이동 연령 × 수단 일별 (약 20분)
+.venv/bin/python scripts/13_build_local_weather.py # D: S-DoT 센서·강우량계 → 역별 동네 날씨 (처음 약 20분)
+.venv/bin/python scripts/11_weather_model.py      # D: 날씨 효과, 연속형, 날씨 자료·노선별 교차 확인, 수단 전환 vs 외출 포기
 ```
 
 Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!python scripts/...` 를 실행한다.
@@ -114,12 +116,23 @@ Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!
 - **유형별 안정성:** 부트스트랩 Jaccard, 그리고 군집 4·6개나 Ward로 바꿨을 때의 일치도로 확인한다.
 - **산출물:** `outputs/figures/c1_cluster_map.png`, `c2_cluster_profile.png`, `outputs/tables/c*.csv`
 
-## D. 날씨 충격 (10·11)
+## D. 날씨 충격 (10~13)
 
 - **데이터:**
-  - 서울교통공사 1~8호선 역별·일별·시간대별 승객유형별 승하차 (공공데이터포털 15099330, 2024.7~2026.6 반기 파일 4개)
-  - 서울 관측소 일자료 (Meteostat 47108 = 기상청 ASOS 108)
-  - 기후동행쉼터 (OA-22386)
-- **서울 전체 회귀:** log(승차) ~ 날씨 구간 + 요일×공휴일 + 연·월. Newey-West 표준오차. 고령자, 일반, 둘의 비를 각각 추정한다.
-- **지역 차이:** 역 × 날짜 패널(linearmodels PanelOLS, 역·날짜 고정효과, 역 군집 표준오차)
-- **산출물:** `outputs/figures/d1_weather_city.png`, `d2_weather_hourly.png`, `outputs/tables/d*.csv`
+  - 서울교통공사 1~8호선 승객유형별 일별 (2022.7~2026.6, 반기 파일 8개)
+  - 9호선 2·3단계 일별 (2023~2026.7)
+  - 서울 관할 전 노선 월별 유·무임 (2015~2026)
+  - KT 생활이동 연령 × 수단 일별 (겨울·여름 17개월)
+  - S-DoT 센서 기온(2023~2026.3)
+  - 서울시 강우량계(2022.7~2025.12)
+  - Meteostat 47108·47110
+  - ERA5(Open-Meteo, 서울 관측소 기준 보정)
+  - 기후동행쉼터
+- **서울 전체 회귀:** log(승차) ~ 날씨 구간(또는 연속형) + 요일×공휴일 + 연·월. Newey-West 표준오차. 고령자, 일반, 둘의 비를 각각 추정한다.
+- **교차 확인:**
+  - 관측소 2곳, S-DoT 서울 중앙값(관측소 기준 보정)
+  - 역별 동네 날씨 패널(역 고정효과, 날짜 고정효과 버전 포함)
+  - 9호선 일별, 전 노선 월별 패널
+- **수단 전환 vs 외출 포기:** KT 70대 이상·20~50대의 지하철·버스·차량·도보·전체 이동을 같은 방식으로 회귀한다.
+- **산출물:** `outputs/figures/d1~d4*.png`, `outputs/tables/d*.csv`
+- **데이터 크기:** 원본이 약 4.2GB다(S-DoT 연도별 zip, KT 월별 zip이 대부분).
