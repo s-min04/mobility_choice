@@ -22,6 +22,8 @@ python -m venv .venv
 .venv/bin/python scripts/12_build_kt_daily.py      # D: KT 생활이동 연령 × 수단 일별 (약 20분)
 .venv/bin/python scripts/13_build_local_weather.py # D: S-DoT 센서·강우량계 → 역별 동네 날씨 (처음 약 20분)
 .venv/bin/python scripts/11_weather_model.py      # D: 날씨 효과, 연속형, 날씨 자료·노선별 교차 확인, 수단 전환 vs 외출 포기
+.venv/bin/python scripts/14_build_carbon_inputs.py # E: 배출계수(g/km), 동별 차량 이동 평균거리 (약 1분)
+.venv/bin/python scripts/15_carbon_scenarios.py    # E: 탄소 감축 시나리오, 민감도, 손익분기, 날씨(이동권) 별도 표
 ```
 
 Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!python scripts/...` 를 실행한다.
@@ -136,3 +138,20 @@ Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!
 - **수단 전환 vs 외출 포기:** KT 70대 이상·20~50대의 지하철·버스·차량·도보·전체 이동을 같은 방식으로 회귀한다.
 - **산출물:** `outputs/figures/d1~d4*.png`, `outputs/tables/d*.csv`
 - **데이터 크기:** 원본이 약 4.2GB다(S-DoT 연도별 zip, KT 월별 zip이 대부분).
+
+## E. 탄소 감축 시나리오 (14·15)
+
+- **데이터:**
+  - 한국교통안전공단 시도별 차종별 도로부문 온실가스 배출량 (공공데이터포털 15106288, 가스별 15087285)
+  - 교통안전정보관리시스템(TMACS) 시도별 차종별 연간 주행거리 (2021~2024, 화면이 부르는 조회 주소로 받는다)
+  - 수도권 생활이동 출도착 × 수단 이동거리(OA-22657), 연령대별 출도착 이동거리(OA-22658): 2026년 9월 평일 5일
+- **배출계수:** 배출량 ÷ 주행거리. 서울 승용 2024 = 194.6 g/km, 서울 승합 2024 = 600.4 g/km (`e1_emission_factors.csv`)
+- **거리:** `move_dist`는 동 중심점 직선거리와 거의 같다(비 0.984) → 우회계수를 곱한다. 서울 출발 차량 이동만 바뀐다고 본다(기본).
+- **시나리오:**
+  - S1: C 1순위 72개 동의 B 고령자 지수를 '대중교통 양호' 유형 중앙값까지 올린다. 차량 분담 변화는 427개 동 회귀 기울기(소득·밀도·도심거리 통제)로 구한다.
+  - S2: 외곽 차 중심 신주거지 76개 동(S1과 겹치는 암사1동 제외)의 차량 분담을 서울 평균까지 낮춘다(목표형).
+  - 각각 70대 이상만 / 동네 전체(20~50대 포함)로 나눈다.
+- **가정값:** `15_carbon_scenarios.py`의 `BASE`. 재차인원 1.3과 우회계수 1.3은 공식 출처를 찾지 못한 값이라 민감도(`e7_sensitivity.csv`)를 함께 낸다.
+- **D 연결:** 한파·큰비에 사라지는 고령자 이동은 탄소와 합치지 않고 `e8_weather_mobility.csv`에 따로 둔다.
+- **산출물:** `outputs/figures/e1_scenarios.png`, `e2_sensitivity.png`, `e3_reduction_map.png`, `outputs/tables/e1~e8*.csv`, `e_summary.json`
+- **데이터 크기:** OA-22657·22658 평일 5일이 약 0.8GB 늘어난다.

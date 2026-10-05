@@ -132,6 +132,15 @@ SEOUL_FILES = [
     # A 검증: 행정동별 자동차 등록 (자가용 승용차 = 차를 쓸 여유)
     ("car_registration", "서울시 행정동별 연료별 자동차 등록현황", "OA-21236", "3", "50",
      "서울시 자치구 읍면동별 연료별 자동차 등록현황(행정동)(26년8월).csv", "2026-08"),
+    # E 분석: 차량 이동 평균거리. 출발·도착 행정동 × 수단 × 이동거리(move_dist, m), 연령 없음 (하루 파일 약 90MB)
+    # 2026년 9월 평일 5일 (주마다 요일을 바꿔 고른다: 목 9.3, 월 9.7, 수 9.9, 화 9.15, 금 9.18)
+    *[(f"life_move_od_mode_{d}", "수도권 생활이동 (출도착 행정동별 수단 데이터)", "OA-22657", "1", d[2:],
+       f"seoul_trans_admdong3_final_{d}.zip", f"{d[:4]}-{d[4:6]}-{d[6:]}")
+      for d in ["20260903", "20260907", "20260909", "20260915", "20260918"]],
+    # E 분석: 고령자 이동거리 보정. 출발·도착 행정동 × 연령대(60세 이상) × 이동거리, 수단 없음 (같은 5일)
+    *[(f"life_move_od_age_{d}", "수도권 생활이동 (연령대별 출도착 행정동 데이터)", "OA-22658", "1", d[2:],
+       f"seoul_trans_admdong4_in_{d}.zip", f"{d[:4]}-{d[4:6]}-{d[6:]}")
+      for d in ["20260903", "20260907", "20260909", "20260915", "20260918"]],
 ]
 
 # 서울 열린데이터광장 시트형 데이터: (id, 데이터셋 이름, infId, 정렬 컬럼, 저장 파일명)
@@ -176,7 +185,20 @@ DATA_GO_KR_FILES = [
     # D 분석: 9호선 2·3단계(언주~중앙보훈병원) 역별 일별 승객유형별 승하차
     ("subway9_type", "서울교통공사_9호선 2_3단계 역별 일별 승객유형별 승하차인원", "15108374",
      "uddi:310e9867-52b7-41fa-8318-a59b1f6799d6", "auto", "서울교통공사_9호선2_3단계_역별일별승객유형별승하차.zip", "2023~2026-07 (연도별 CSV 묶음)"),
+    # E 분석: 시도 × 차종(승용·승합·화물·특수) 도로부문 온실가스 배출량 (천 tCO2eq, 2012~2024)
+    ("ghg_road_by_type", "한국교통안전공단_지역별 차종별 도로부문 온실가스 배출량", "15106288",
+     "uddi:3a061bfc-f00e-48c6-8688-fca740e42669", "1", "한국교통안전공단_지역별차종별도로부문온실가스배출량_20241231.csv", "2012~2024"),
+    # E 분석: 같은 자료의 가스별(CO2·CH4·N2O) 판 - CO2eq 중 CO2 비중 확인용
+    ("ghg_road_by_gas", "한국교통안전공단_지역별 온실가스별 도로부문 온실가스 배출량", "15087285",
+     "uddi:d469c178-b244-44c0-b5c5-90f732cc93d0", "1", "한국교통안전공단_지역별온실가스별도로부문온실가스배출량_20241231.csv", "2012~2024"),
 ]
+DATA_GO_KR_PROVIDER = {"population": "행정안전부", "ghg_road_by_type": "한국교통안전공단", "ghg_road_by_gas": "한국교통안전공단"}
+
+# E 분석: 시도 × 차종 × 연료 연간 자동차 주행거리 (천 km). 교통안전정보관리시스템(TMACS) 화면이 부르는 조회 주소를 그대로 쓴다
+# (화면: 자동차 주행거리통계 > 차종별 연료별 주행거리). 연간 주행거리(Tg1700_04)와 1일 주행거리(Tg1700_03), 2021~2024년
+TMACS = ("tmacs_mileage", "자동차 주행거리통계 - 차종별 연료별 주행거리 (시도별, 연간·1일)",
+         "https://tmacs.kotsa.or.kr/web/TG/TG200/TG2200/Tg2119_AJAX.jsp", "tmacs_mileage_2021_2024.json", "2021~2024")
+TMACS_PAGE = "https://tmacs.kotsa.or.kr/web/TG/TG200/TG2200/Tg1700_02.jsp?mid=S3080"
 
 # D 분석: 서울 기상관측소(기상청 ASOS 108 = WMO 47108) 일자료. 기상자료개방포털은 로그인이 필요해
 # 같은 관측값을 NOAA 를 거쳐 제공하는 Meteostat 공개 파일을 쓴다 (컬럼: 날짜, 평균·최저·최고기온, 강수, 적설, ...)
@@ -299,6 +321,17 @@ def get_url(url, path):
     save_stream(session.get(url, stream=True, timeout=600), path)
 
 
+def get_tmacs(url, path):
+    """연도 × (연간, 1일) 주행거리를 모두 받아 JSON 하나로 저장한다. 행: 차종 × 연료, 열: 전국·시도."""
+    out = []
+    for year in range(2021, 2025):
+        for gubun, item in [("Tg1700_04", "annual_kkm"), ("Tg1700_03", "daily_km")]:
+            resp = session.post(url, data={"gubun": gubun, "year": str(year), "carUse": "전체"}, timeout=120)
+            resp.raise_for_status()
+            out += [{**r, "item": item} for r in resp.json()]
+    path.write_text(json.dumps(out, ensure_ascii=False))
+
+
 def get_osm(query, path):
     # Overpass 는 브라우저형 User-Agent 를 거부하고(406), 서버가 바쁘면 504 를 준다 → 미러 순서대로 시도
     headers = {"User-Agent": "AI-transportation-solution/0.1 (data analysis contest)"}
@@ -328,7 +361,7 @@ def main():
         jobs.append((key, name, "서울특별시", f"https://data.seoul.go.kr/dataList/{inf_id}/S/1/datasetView.do",
                      fname, "", lambda p, a=(inf_id, order_by): get_seoul_sheet(*a, p)))
     for key, name, pk, detail_pk, sn, fname, ref in DATA_GO_KR_FILES:
-        provider = "행정안전부" if key == "population" else "서울교통공사"
+        provider = DATA_GO_KR_PROVIDER.get(key, "서울교통공사")
         jobs.append((key, name, provider, f"{DATA_GO_KR}/data/{pk}/fileData.do",
                      fname, ref, lambda p, a=(pk, detail_pk, sn): get_data_go_kr(a[0], a[1], p, a[2])))
     for key, name, url, fname, ref in [WEATHER, WEATHER2, WEATHER_ERA5]:
@@ -342,6 +375,9 @@ def main():
     for key, name, url, fname in DEM_TILES:
         jobs.append((key, name, "ESA Copernicus (AWS Open Data)", url, fname, "2021 release",
                      lambda p, u=url: get_url(u, p)))
+    key, name, url, fname, ref = TMACS
+    jobs.append((key, name, "한국교통안전공단 교통안전정보관리시스템(TMACS)", TMACS_PAGE, fname, ref,
+                 lambda p, u=url: get_tmacs(u, p)))
     key, name, fname = OSM_ROADS
     jobs.append((key, name, "OpenStreetMap contributors", OVERPASS_URLS[0], fname, "",
                  lambda p: get_osm(OSM_ROADS_QUERY, p)))
