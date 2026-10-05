@@ -50,6 +50,12 @@ SEOUL_FILES = [
      "서울시 민간대여 공유 전동킥보드 기기 현황_25.2월기준.csv", "2025-02"),
     ("pm_devices_2025dec", "서울시 공유 전동킥보드 운영 현황", "OA-22199", "1", "4",
      "서울시 민간대여 공유 전동킥보드 기기 현황_25.12월기준.csv", "2025-12"),
+    # A 분석: 도착 행정동 × 시간대 × 성·연령 × 이동수단 (서울시·KT 수도권 생활이동, 2026년 9월 일별 파일 묶음)
+    ("life_move_mode_202609", "수도권 생활이동 (도착 행정동 기준 시간대별 성연령별 수단 데이터 (내국인))",
+     "OA-22655", "1", "202609", "seoul_trans_admdong1_in_202609.zip", "2026-09"),
+    # A 분석: 도착 행정동 × 시간대 × 성·연령 × 이동목적 (귀가 이동으로 거주자의 외출 횟수를 본다)
+    ("life_move_purpose_202609", "수도권 생활이동 (성 연령별, 도착지 기준)-내국인",
+     "OA-22298", "1", "202609", "seoul_purpose_admdong1_in_202609.zip", "2026-09"),
 ]
 
 # 서울 열린데이터광장 시트형 데이터: (id, 데이터셋 이름, infId, 정렬 컬럼, 저장 파일명)
@@ -94,6 +100,14 @@ OSM_ROADS_QUERY = """
 way["highway"~"^(trunk|primary|secondary|tertiary)$"];
 out geom tags;
 """
+# A 분석: 경사 계산용 수치표고모델 (Copernicus DEM GLO-30, AWS 공개 버킷, 서울을 덮는 2개 타일)
+DEM_TILES = [
+    (f"dem_{t}", f"Copernicus DEM GLO-30 {t}",
+     f"https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_{t}_00_DEM/Copernicus_DSM_COG_10_{t}_00_DEM.tif",
+     f"Copernicus_DSM_COG_10_{t}_00_DEM.tif")
+    for t in ["N37_00_E126", "N37_00_E127"]
+]
+
 OSM_ROADS = ("osm_major_roads", "OpenStreetMap 간선도로 (trunk·primary·secondary·tertiary)", "osm_major_roads_seoul.json")
 
 session = requests.Session()
@@ -189,6 +203,9 @@ def main():
     key, name, fname = OSM_MASK
     jobs.append((key, name, "OpenStreetMap contributors", OVERPASS_URLS[0], fname, "",
                  lambda p: get_osm(OSM_MASK_QUERY, p)))
+    for key, name, url, fname in DEM_TILES:
+        jobs.append((key, name, "ESA Copernicus (AWS Open Data)", url, fname, "2021 release",
+                     lambda p, u=url: get_url(u, p)))
     key, name, fname = OSM_ROADS
     jobs.append((key, name, "OpenStreetMap contributors", OVERPASS_URLS[0], fname, "",
                  lambda p: get_osm(OSM_ROADS_QUERY, p)))

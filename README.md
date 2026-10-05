@@ -14,6 +14,8 @@ python -m venv .venv
 .venv/bin/python scripts/03_analysis.py      # 격차 분해, LISA, 민감도, 택시 참고값, 그림
 .venv/bin/python scripts/04_pm_obstruction.py # 공유 전동킥보드 보행 방해
 .venv/bin/python scripts/05_taxi_call_trend.py # 동행 온다 콜택시 이용 추이 (기사 수치)
+.venv/bin/python scripts/06_build_usage.py    # A: 고령자 실제 이동(생활이동)·외출·경사
+.venv/bin/python scripts/07_model_usage.py    # A: B 검증, 기대 대비 실제(랜덤포레스트), SHAP, 외출 회귀 (약 4분)
 ```
 
 Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!python scripts/...` 를 실행한다.
@@ -80,3 +82,13 @@ Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!
 - 따릉이 β는 서울 전체 값 하나다. 대여소마다 고령자 이용률이 다를 수 있다.
 - 택시 참고값은 간선도로(trunk·primary·secondary) 근처면 길에서 잡을 수 있다고 보았다. 실제 빈 택시 통행량, 배차 실패, 요금 부담은 반영하지 않았다.
 - 킥보드 견인 건수는 자치구의 견인 시행 여부와 기록 방식에 좌우된다 (예: 강남구는 2,401건 모두 '차도', 종로·성북구는 거의 0건).
+
+## A. 고령자의 실제 이동으로 본 검증 (06·07)
+
+- 데이터: 서울시·KT 수도권 생활이동 2026년 9월 평일 20일 (추석 연휴 제외)
+  - 수단: OA-22655
+  - 목적: OA-22298
+  - 수단·목적 코드는 시간대 패턴으로 판별했다. 지하철=6(새벽 운행 없음), 버스=4·5, 도보=7, 차량=8, 귀가=3
+- 결과변수: 70대 이상 대중교통 분담률 = (지하철+버스)÷(지하철+버스+차량), 1인당 하루 외출(귀가 이동÷인구)
+- 기대값: 공급 조건 10개 → 랜덤포레스트 5겹 교차검증 표본 밖 예측(5회 평균). 잔차는 동네 전체 몫(청장년 잔차)과 고령자만의 몫으로 나눈다.
+- 산출물: `outputs/figures/a1_validation.png`, `a2_shap.png`, `a3_residual_map.png`, `outputs/tables/a*.csv`

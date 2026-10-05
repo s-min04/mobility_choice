@@ -10,3 +10,7 @@ requests
 matplotlib
 libpysal
 esda
+scikit-learn
+shap
+statsmodels
+rasterio
