@@ -90,5 +90,7 @@ Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!
   - 목적: OA-22298
   - 수단·목적 코드는 시간대 패턴으로 판별했다. 지하철=6(새벽 운행 없음), 버스=4·5, 도보=7, 차량=8, 귀가=3
 - 결과변수: 70대 이상 대중교통 분담률 = (지하철+버스)÷(지하철+버스+차량), 1인당 하루 외출(귀가 이동÷인구)
+- 소득 변수: 65세 이상 기초생계급여 수급률(OA-22227, 2024.5, 동 이름으로 매칭), 아파트 평균 시가(OA-22163, 최신 분기)
 - 기대값: 공급 조건 10개 → 랜덤포레스트 5겹 교차검증 표본 밖 예측(5회 평균). 잔차는 동네 전체 몫(청장년 잔차)과 고령자만의 몫으로 나눈다.
-- 산출물: `outputs/figures/a1_validation.png`, `a2_shap.png`, `a3_residual_map.png`, `outputs/tables/a*.csv`
+- 산출물: `outputs/figures/a1_validation.png`, `a2_shap.png`, `a3_residual_map.png`, `a4_income_outing.png`, `outputs/tables/a*.csv`
+  (소득 없는 모델 결과는 `a2_expected_vs_actual_no_income.csv`, 우선지역 견고성은 `a5_priority_robustness.csv`)

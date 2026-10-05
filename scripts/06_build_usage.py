@@ -13,7 +13,9 @@
 2. 외출 횟수: 같은 생활이동의 목적별 자료에서 '귀가'(코드 3: 밤 8~10시에 가장 많음, 데이터로 판별) 이동을 세어
    거주 인구로 나눈다 = 1인당 하루 외출 횟수 (70대 이상, 20~50대)
 3. 신뢰도 확인용: 평일을 홀수일/짝수일로 나눠 대중교통 분담률을 따로 구한다
-4. 경사: Copernicus DEM(30m, 건물을 포함한 표면 고도)을 150m 중앙값으로 다듬어 건물 경계를 줄인 뒤 경사(%)를 구하고,
+4. 소득: (가난한 쪽) 기초생계급여 수급자 비율 — 2024.5 동별·연령별 자료를 이름으로 맞춘다
+         (부유한 쪽) 아파트 평균 시가 — 서울시 상권분석서비스 최신 분기
+5. 경사: Copernicus DEM(30m, 건물을 포함한 표면 고도)을 150m 중앙값으로 다듬어 건물 경계를 줄인 뒤 경사(%)를 구하고,
    B의 거주 가능 격자점에서 뽑아 행정동 평균을 낸다.
 """
 
@@ -100,6 +102,54 @@ def load_outings(pop: pd.DataFrame) -> pd.DataFrame:
     return out[["home_trips_70p", "home_trips_adult", "out_rate_70p", "out_rate_adult"]]
 
 
+def norm_dong(name: str) -> str:
+    """수급자 자료와 경계 자료의 동 이름 표기 차이를 맞춘다 (상계3.4동 → 상계3·4동, 자양제4동 → 자양4동)."""
+    import re
+    name = re.sub(r"[.,\-]", "·", str(name).strip())
+    return re.sub(r"제(?=\d)", "", name)
+
+
+def load_income(dongs: gpd.GeoDataFrame) -> pd.DataFrame:
+    w = pd.read_excel(RAW / "서울시 국민기초생활 수급자 동별 현황(202405).xlsx", header=None, skiprows=3)
+    w = w.iloc[:, [0, 1, 2, 4]].set_axis(["name", "kind", "age", "n"], axis=1)
+    w[["name", "kind"]] = w[["name", "kind"]].ffill()
+    gus = set(dongs["gu"])
+    w["gu"] = w["name"].where(w["name"].isin(gus)).ffill()
+    w = w[~w["name"].isin(gus) & (w["kind"] == "기초생계급여")]
+    w = w.pivot_table(index=["gu", "name"], columns="age", values="n", aggfunc="sum").fillna(0)
+    w = w.rename(columns={"65세이상": "welfare_65p", "18~64세": "welfare_18_64", "18세미만": "welfare_u18"}).reset_index()
+    w["key"] = w["name"].map(norm_dong)
+    # 동대문구 용신동은 2024년 이후 신설동·용두동으로 나뉘었다 → 두 동에 같은 수급률을 쓰도록 합쳐서 나눈다
+    split = {("동대문구", "용신동"): ["신설동", "용두동"]}
+    rows = []
+    for (gu, old), news in split.items():
+        r = w[(w["gu"] == gu) & (w["key"] == old)]
+        for new in news:
+            rows.append(r.assign(key=new, split_from=old))
+    w = pd.concat([w, *rows])
+    d = dongs[["adm_cd10", "gu", "dong", "pop_total", "pop_65_plus"]].assign(key=dongs["dong"].map(norm_dong))
+    d = d.merge(w.drop(columns="name"), on=["gu", "key"], how="left")
+    sp = d["split_from"].notna() if "split_from" in d else pd.Series(False, index=d.index)
+    for col, pop in [("welfare_65p", "pop_65_plus"), ("welfare_all", "pop_total")]:
+        num = d[["welfare_65p"]].sum(axis=1) if col == "welfare_65p" else d[["welfare_65p", "welfare_18_64", "welfare_u18"]].sum(axis=1, min_count=1)
+        den = d[pop].where(~sp, d.groupby("split_from")[pop].transform("sum"))
+        d[col + "_rate"] = num / den
+    missing = d.loc[d["welfare_65p"].isna(), ["gu", "dong"]].values.tolist()
+    for col in ["welfare_65p_rate", "welfare_all_rate"]:
+        d[col] = d[col].fillna(d.groupby("gu")[col].transform("median"))
+    print(f"  수급자 자료 매칭: {len(d) - len(missing)}/{len(d)}개 동 (구 중앙값으로 채움: {missing})")
+
+    a = pd.read_csv(RAW / "서울시 상권분석서비스(아파트-행정동).csv", encoding="cp949", dtype={"행정동_코드": str})
+    a = a[a["기준_년분기_코드"] == a["기준_년분기_코드"].max()]
+    a = a.assign(adm_cd10=a["행정동_코드"].str.ljust(10, "0")).set_index("adm_cd10")["아파트_평균_시가"]
+    d["apt_price_eok"] = d["adm_cd10"].map(a) / 1e8
+    nmiss = d["apt_price_eok"].isna().sum()
+    d["apt_price_eok"] = d["apt_price_eok"].fillna(d.groupby("gu")["apt_price_eok"].transform("median"))
+    d["log_apt_price"] = np.log(d["apt_price_eok"])
+    print(f"  아파트 시가: 최신 분기 {a.index.size}개 동, 없는 {nmiss}개 동은 구 중앙값으로 채움")
+    return d.set_index("adm_cd10")[["welfare_65p_rate", "welfare_all_rate", "apt_price_eok", "log_apt_price"]]
+
+
 def age_structure() -> pd.DataFrame:
     p = pd.read_csv(RAW / "지역별(행정동) 성별 연령별 주민등록 인구수_20260831.csv", encoding="cp949",
                     dtype={"행정기관코드": str})
@@ -143,12 +193,14 @@ def main():
     if missing:
         raise SystemExit(f"생활이동 자료에 없는 행정동: {sorted(missing)}")
     slope = slope_by_dong(dongs)
+    income = load_income(dongs)
 
     hall = gpd.GeoSeries(gpd.points_from_xy([CITY_HALL[0]], [CITY_HALL[1]]), crs="EPSG:4326").to_crs(dongs.crs)[0]
     d = (dongs.merge(trips, left_on="adm_cd10", right_index=True)
          .merge(slope, left_on="adm_cd10", right_index=True)
          .merge(ages[["pop_20_59", "share80_in70"]], left_on="adm_cd10", right_index=True)
-         .merge(outings, left_on="adm_cd10", right_index=True))
+         .merge(outings, left_on="adm_cd10", right_index=True)
+         .merge(income, left_on="adm_cd10", right_index=True))
     hab_km2 = d["n_points"] * 0.01
     d["pop_density"] = d["pop_total"] / hab_km2  # 거주 가능 면적 기준 (명/km²)
     d["dist_cityhall_km"] = d.centroid.distance(hall) / 1000
@@ -156,7 +208,7 @@ def main():
     d.to_file(PROC / "dong_usage.gpkg", driver="GPKG")
 
     show = ["pt_share_70p", "pt_share_adult", "car_share_70p", "motor_trips_70p", "out_rate_70p", "out_rate_adult",
-            "slope_mean", "steep_share"]
+            "slope_mean", "steep_share", "welfare_65p_rate", "welfare_all_rate", "apt_price_eok"]
     print(d[show].describe().round(3).to_string())
     w = d["motor_trips_70p"]
     print(f"서울 전체 대중교통 분담률: 70대 이상 {np.average(d['pt_share_70p'], weights=w):.3f}, "

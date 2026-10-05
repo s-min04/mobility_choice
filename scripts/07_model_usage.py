@@ -9,6 +9,8 @@
    9월 평일을 홀수일/짝수일로 나눠 같은 결과가 다시 나오는지(반분 신뢰도) 확인한다.
 3. 요인: SHAP 으로 각 조건이 고령자 분담률을 얼마나, 어느 방향으로 바꾸는지 본다.
 4. 외출: 고령자 1인당 하루 외출 횟수가 교통 조건과 관련 있는지 본다.
+5. 소득: 기초생계급여 수급률(가난한 쪽)과 아파트 평균 시가(부유한 쪽)를 넣어 2~4를 다시 확인한다.
+   기본 결과(그림·표)는 소득을 넣은 모델로 만들고, 소득 없는 모델과 비교표를 남긴다.
 """
 
 import json
@@ -52,6 +54,11 @@ FEATURES = {
     "elderly_share": "65세 이상 비율",
     "share80_in70": "70세 이상 중 80세 이상 비율",
 }
+INCOME = {
+    "welfare_65p_rate": "고령자 기초생계급여 수급률",
+    "log_apt_price": "아파트 평균 시가(로그)",
+}
+FEATURES_ALL = {**FEATURES, **INCOME}
 
 
 def rf():
@@ -94,8 +101,8 @@ def validate(d: pd.DataFrame, pri: pd.Series) -> dict:
 
 # ---------------------------------------------------------------- 2. 기대 대비 실제
 
-def expected_vs_actual(d: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
-    X = d[list(FEATURES)]
+def expected_vs_actual(d: pd.DataFrame, features: dict) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    X = d[list(features)]
     cv_rows = []
     for yname in ["pt_share_70p", "pt_share_adult"]:
         y = d[yname].values
@@ -140,8 +147,8 @@ def expected_vs_actual(d: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, dic
 
 # ---------------------------------------------------------------- 3. SHAP
 
-def shap_analysis(d: pd.DataFrame):
-    X = d[list(FEATURES)].rename(columns=FEATURES)
+def shap_analysis(d: pd.DataFrame, features: dict):
+    X = d[list(features)].rename(columns=features)
     model = rf().fit(X, d["pt_share_70p"])
     sv = shap.TreeExplainer(model).shap_values(X)
     imp = pd.DataFrame({"요인": X.columns, "평균 |SHAP| (%p)": np.abs(sv).mean(axis=0) * 100,
@@ -153,16 +160,67 @@ def shap_analysis(d: pd.DataFrame):
 
 def outing(d: pd.DataFrame) -> pd.DataFrame:
     z = lambda s: (s - s.mean()) / s.std()
-    v = d.assign(**{c + "_z": z(d[c]) for c in ["out_rate_adult", "share80_in70", "elderly_share", "pop_density",
-                                                  "dist_cityhall_km", "mci_elderly", "slope_mean"]})
-    m = smf.ols("out_rate_70p ~ out_rate_adult_z + share80_in70_z + elderly_share_z + pop_density_z"
-                " + dist_cityhall_km_z + mci_elderly_z + slope_mean_z", v).fit(cov_type="HC1")
-    t = pd.DataFrame({"계수(1표준편차당 외출 횟수 변화)": m.params, "p": m.pvalues})
-    t.loc["R2", "계수(1표준편차당 외출 횟수 변화)"] = m.rsquared
-    return t
+    cols = ["out_rate_adult", "share80_in70", "elderly_share", "pop_density", "dist_cityhall_km", "mci_elderly",
+            "slope_mean", "welfare_65p_rate", "log_apt_price"]
+    v = d.assign(**{c + "_z": z(d[c]) for c in cols})
+    base = ("out_rate_70p ~ out_rate_adult_z + share80_in70_z + elderly_share_z + pop_density_z"
+            " + dist_cityhall_km_z + mci_elderly_z + slope_mean_z")
+    out = {}
+    for name, f in [("소득 없음", base), ("소득 포함", base + " + welfare_65p_rate_z + log_apt_price_z"),
+                    ("소득만 (청장년 외출 통제 안 함)", "out_rate_70p ~ welfare_65p_rate_z + log_apt_price_z"
+                                                + " + share80_in70_z + elderly_share_z")]:
+        m = smf.ols(f, v).fit(cov_type="HC1")
+        t = pd.DataFrame({"계수": m.params, "p": m.pvalues})
+        t.loc["R2", "계수"] = m.rsquared
+        out[name] = t
+    return pd.concat(out, axis=1)
+
+
+def priority_robustness(d: pd.DataFrame, pri: np.ndarray) -> pd.DataFrame:
+    """우선지역의 높은 차량 분담률이 소득·밀도·도심 거리 차이로 설명되는지."""
+    z = lambda s: (s - s.mean()) / s.std()
+    v = d.assign(priority=pri.astype(int), **{c + "_z": z(d[c]) for c in
+                                              ["welfare_65p_rate", "log_apt_price", "pop_density", "dist_cityhall_km"]})
+    rows = {}
+    for y in ["car_share_70p", "car_share_adult"]:
+        for name, f in [("통제 없음", "priority"),
+                        ("소득 통제", "priority + welfare_65p_rate_z + log_apt_price_z"),
+                        ("소득·밀도·거리 통제", "priority + welfare_65p_rate_z + log_apt_price_z + pop_density_z"
+                                         " + dist_cityhall_km_z")]:
+            m = smf.ols(f"{y} ~ {f}", v).fit(cov_type="HC1")
+            rows[(y, name)] = {"우선지역 효과(%p)": m.params["priority"] * 100, "p": m.pvalues["priority"],
+                               "R2": m.rsquared}
+    return pd.DataFrame(rows).T
+
+
+def income_outing(d: pd.DataFrame) -> pd.DataFrame:
+    """고령자 기초생계급여 수급률 4분위별 외출 횟수 (고령자, 청장년, 둘의 비)."""
+    q = pd.qcut(d["welfare_65p_rate"], 4, labels=["1분위(낮음)", "2분위", "3분위", "4분위(높음)"])
+    return d.assign(ratio=d["out_rate_70p"] / d["out_rate_adult"]).groupby(q, observed=True).agg(
+        동수=("dong", "size"), 고령자_수급률=("welfare_65p_rate", "median"),
+        고령자_외출=("out_rate_70p", "median"), 청장년_외출=("out_rate_adult", "median"),
+        고령자_청장년_비=("ratio", "median"), 고령자_차량=("car_share_70p", "median"))
 
 
 # ---------------------------------------------------------------- 그림
+
+def fig_income_outing(t: pd.DataFrame, path: Path):
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    x = np.arange(len(t))
+    ax.bar(x - 0.2, t["고령자_외출"], 0.4, label="70대 이상", color="#c53030")
+    ax.bar(x + 0.2, t["청장년_외출"], 0.4, label="20~50대", color="#a0aec0")
+    for i, (a, b) in enumerate(zip(t["고령자_외출"], t["청장년_외출"])):
+        ax.text(i - 0.2, a, f"{a:.2f}", ha="center", va="bottom", fontsize=9)
+        ax.text(i + 0.2, b, f"{b:.2f}", ha="center", va="bottom", fontsize=9)
+    ax.set_xticks(x, [f"{l}\n수급률 {v:.1%}" for l, v in zip(t.index, t["고령자_수급률"])])
+    ax.set_ylabel("1인당 하루 외출 횟수 (귀가 이동)")
+    ax.set_title("가난한 동네의 고령자일수록 덜 나간다 (고령자 기초생계급여 수급률 4분위)")
+    ax.set_ylim(0, t[["고령자_외출", "청장년_외출"]].max().max() * 1.2)
+    ax.legend(frameon=False, ncol=2, loc="upper right")
+    ax.spines[["top", "right"]].set_visible(False)
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
 
 def fig_validation(val: dict, path: Path):
     q, c = val["quartiles"], val["priority"]
@@ -238,7 +296,9 @@ def main():
     print(val["quartiles"].round(3).to_string())
     print(val["priority"].round(4).to_string())
 
-    cv, res, rel = expected_vs_actual(g)
+    cv0, res0, rel0 = expected_vs_actual(g, FEATURES)
+    cv, res, rel = expected_vs_actual(g, FEATURES_ALL)
+    cv = pd.concat([cv0.assign(소득="없음"), cv.assign(소득="포함")])
     print(cv.round(3).to_string(index=False))
     print(json.dumps(rel, ensure_ascii=False, indent=1, default=float))
     res["priority"] = pri
@@ -248,7 +308,16 @@ def main():
     print(low[["gu", "dong", "pt_share_70p", "expected_70p", "resid_70p", "resid_elderly_only", "type", "priority"]]
           .round(3).to_string(index=False))
 
-    imp, sv, X = shap_analysis(g)
+    imp, sv, X = shap_analysis(g, FEATURES_ALL)
+    rob = priority_robustness(g, pri)
+    print(rob.round(4).to_string())
+    only0 = set(res0.loc[res0["type"] == "고령자만 덜 탐", "dong"] + "|" + res0.loc[res0["type"] == "고령자만 덜 탐", "gu"])
+    only1 = set(res.loc[res["type"] == "고령자만 덜 탐", "dong"] + "|" + res.loc[res["type"] == "고령자만 덜 탐", "gu"])
+    change = {"소득 없음 모델의 '고령자만 덜 탐'": len(only0), "소득 포함 모델": len(only1),
+              "소득을 넣자 빠진 동": sorted(only0 - only1), "새로 들어온 동": sorted(only1 - only0),
+              "계속 남은 동": sorted(only0 & only1),
+              "잔차 상관(소득 없음 vs 포함)": float(np.corrcoef(res0["resid_70p"], res["resid_70p"])[0, 1])}
+    print(json.dumps(change, ensure_ascii=False, indent=1))
     print(imp.round(3).to_string(index=False))
     out = outing(g)
     print(out.round(4).to_string())
@@ -261,8 +330,15 @@ def main():
     res.to_csv(TAB / "a2_expected_vs_actual.csv", index=False, encoding="utf-8-sig")
     imp.to_csv(TAB / "a3_shap_importance.csv", index=False, encoding="utf-8-sig")
     out.to_csv(TAB / "a4_outing_regression.csv", encoding="utf-8-sig")
-    (TAB / "a_summary.json").write_text(json.dumps({"reliability": rel, "r2": val["r2"]}, ensure_ascii=False,
-                                                    indent=2, default=float))
+    rob.to_csv(TAB / "a5_priority_robustness.csv", encoding="utf-8-sig")
+    inc = income_outing(g)
+    print(inc.round(3).to_string())
+    inc.to_csv(TAB / "a6_income_outing.csv", encoding="utf-8-sig")
+    fig_income_outing(inc, FIG / "a4_income_outing.png")
+    res0.to_csv(TAB / "a2_expected_vs_actual_no_income.csv", index=False, encoding="utf-8-sig")
+    (TAB / "a_summary.json").write_text(json.dumps({"reliability": rel, "reliability_no_income": rel0,
+                                                    "r2": val["r2"], "income_change": change},
+                                                   ensure_ascii=False, indent=2, default=float))
 
     fig_validation(val, FIG / "a1_validation.png")
     fig_shap(sv, X, FIG / "a2_shap.png")
