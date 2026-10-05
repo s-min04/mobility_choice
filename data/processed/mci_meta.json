@@ -1,0 +1,41 @@
+{
+  "params": {
+    "grid_m": 100,
+    "walk_speed": {
+      "general": 1.2,
+      "elderly": 0.8
+    },
+    "walk_minutes": {
+      "subway": 10,
+      "bus": 5,
+      "bike": 5
+    },
+    "detour": 1.3,
+    "bus_target_routes": null
+  },
+  "bus_target_routes_used": 7.0,
+  "bike_age_factor": {
+    "rate_ref_per_person_6m": 2.7693837923893074,
+    "rate_60s": 0.6738848503334248,
+    "rate_70_plus": 0.13690185183897952,
+    "rate_65_plus": 0.31938261374481003,
+    "beta_65_plus": 0.11532623777987094
+  },
+  "walk_radius_m": {
+    "general": {
+      "subway": 554,
+      "bus": 277,
+      "bike": 277
+    },
+    "elderly": {
+      "subway": 369,
+      "bus": 185,
+      "bike": 185
+    }
+  },
+  "n_grid": 60614,
+  "n_habitable": 38952,
+  "n_subway": 784,
+  "n_bus_stops": 12889,
+  "n_bike": 2789
+}

@@ -1,0 +1,27 @@
+{
+  "pop_65_plus": 1961251.0,
+  "blind_elderly_pop_elderly_profile": 1016409.6283668183,
+  "blind_elderly_pop_general_profile": 225061.8651839121,
+  "priority_dongs": 25,
+  "priority_pop_65_plus": 127646.0,
+  "priority_blind_elderly_pop": 78405.55015647328,
+  "corr_elderly_share_mci_elderly": -0.14330242405523183,
+  "moran_I_mci_elderly": 0.29757734158405086,
+  "moran_p": 0.001,
+  "moran_bv_I_elderlyshare_mci": -0.0769765259669446,
+  "moran_bv_p": 0.004,
+  "lisa_counts": {
+    "ns": 332,
+    "HH": 44,
+    "LL": 38,
+    "LH": 7,
+    "HL": 6
+  },
+  "lisa_bv_counts": {
+    "ns": 332,
+    "LH": 31,
+    "HL": 26,
+    "HH": 20,
+    "LL": 18
+  }
+}

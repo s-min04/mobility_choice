@@ -1,0 +1,6 @@
+# 원본 데이터는 올리지 않는다 (출처·해시 기록인 manifest.csv 만 올린다)
+data/raw/*
+!data/raw/manifest.csv
+.venv/
+__pycache__/
+*.part

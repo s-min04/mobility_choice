@@ -1,0 +1,12 @@
+pandas
+geopandas
+pyogrio
+pyarrow
+shapely
+pyproj
+scipy
+openpyxl
+requests
+matplotlib
+libpysal
+esda
