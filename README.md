@@ -17,6 +17,7 @@ python -m venv .venv
 .venv/bin/python scripts/06_build_usage.py    # A: 고령자 실제 이동(생활이동)·외출·경사
 .venv/bin/python scripts/07_model_usage.py    # A: B 검증, 기대 대비 실제(랜덤포레스트), SHAP, 외출 회귀 (약 4분)
 .venv/bin/python scripts/08_verify_elderly.py # A: 교통카드 실측(역별 무임 승차)·자동차 등록으로 고령자 특유 불리함 재검정
+.venv/bin/python scripts/09_cluster.py        # C: 행정동 유형 군집(K-평균 5개)과 정책 처방
 ```
 
 Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!python scripts/...` 를 실행한다.
@@ -103,3 +104,10 @@ Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!
   - 이 값을 역세권 고령자의 거리 구간(369~554m, 554m 밖)과 경사 8% 이상 비율로 회귀한다. 표본 6가지, HC1.
 - **부촌 검정:** 행정동별 자가용 승용차(인구 1,000명당)와 '고령자만 덜 탐' 잔차의 관계를 본다.
 - **산출물:** `outputs/figures/a5_station_test.png`, `outputs/tables/a7_*.csv`, `a8_*.csv`
+
+## C. 행정동 유형 (09)
+
+- **변수 11개:** 공급, 병·의원 접근(OA-20337), 행동, 인구, 소득(자동차 등록 포함), 급경사 비율. 표준화 후 K-평균으로 나눈다.
+- **군집 수 선택:** 실루엣, Ward와의 일치도, 부트스트랩 안정성으로 5개를 골랐다.
+- **유형별 안정성:** 부트스트랩 Jaccard, 그리고 군집 4·6개나 Ward로 바꿨을 때의 일치도로 확인한다.
+- **산출물:** `outputs/figures/c1_cluster_map.png`, `c2_cluster_profile.png`, `outputs/tables/c*.csv`
