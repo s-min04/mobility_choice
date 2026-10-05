@@ -18,6 +18,8 @@ python -m venv .venv
 .venv/bin/python scripts/07_model_usage.py    # A: B 검증, 기대 대비 실제(랜덤포레스트), SHAP, 외출 회귀 (약 4분)
 .venv/bin/python scripts/08_verify_elderly.py # A: 교통카드 실측(역별 무임 승차)·자동차 등록으로 고령자 특유 불리함 재검정
 .venv/bin/python scripts/09_cluster.py        # C: 행정동 유형 군집(K-평균 5개)과 정책 처방
+.venv/bin/python scripts/10_build_weather.py  # D: 역별·일별 우대권/일반 승차(서울교통공사)와 서울 날씨 맞추기
+.venv/bin/python scripts/11_weather_model.py  # D: 폭염·한파·큰비 효과, 시간대, 지역 차이, 쉼터 접근
 ```
 
 Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!python scripts/...` 를 실행한다.
@@ -111,3 +113,13 @@ Google Colab에서는 `!pip install -r requirements.txt` 후 같은 순서로 `!
 - **군집 수 선택:** 실루엣, Ward와의 일치도, 부트스트랩 안정성으로 5개를 골랐다.
 - **유형별 안정성:** 부트스트랩 Jaccard, 그리고 군집 4·6개나 Ward로 바꿨을 때의 일치도로 확인한다.
 - **산출물:** `outputs/figures/c1_cluster_map.png`, `c2_cluster_profile.png`, `outputs/tables/c*.csv`
+
+## D. 날씨 충격 (10·11)
+
+- **데이터:**
+  - 서울교통공사 1~8호선 역별·일별·시간대별 승객유형별 승하차 (공공데이터포털 15099330, 2024.7~2026.6 반기 파일 4개)
+  - 서울 관측소 일자료 (Meteostat 47108 = 기상청 ASOS 108)
+  - 기후동행쉼터 (OA-22386)
+- **서울 전체 회귀:** log(승차) ~ 날씨 구간 + 요일×공휴일 + 연·월. Newey-West 표준오차. 고령자, 일반, 둘의 비를 각각 추정한다.
+- **지역 차이:** 역 × 날짜 패널(linearmodels PanelOLS, 역·날짜 고정효과, 역 군집 표준오차)
+- **산출물:** `outputs/figures/d1_weather_city.png`, `d2_weather_hourly.png`, `outputs/tables/d*.csv`

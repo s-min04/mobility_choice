@@ -74,14 +74,32 @@ SEOUL_SHEETS = [
      "서울시 지하철 호선별 역별 유무임 승하차 인원 정보.csv"),
     # C 분석: 고령자의 일상 목적지인 병·의원 위치 (좌표 포함)
     ("clinics", "서울시 병의원 위치 정보", "OA-20337", "", "서울시 병의원 위치 정보.csv"),
+    # D 분석: 무더위·한파 쉼터 (좌표 EPSG:5186)
+    ("climate_shelters", "서울시 기후동행쉼터", "OA-22386", "", "서울시 기후동행쉼터.csv"),
 ]
 
-# 공공데이터포털 파일데이터: (id, 데이터셋 이름, publicDataPk, publicDataDetailPk, 저장 파일명, 기준시점)
+# 공공데이터포털 파일데이터: (id, 데이터셋 이름, publicDataPk, publicDataDetailPk, fileDetailSn, 저장 파일명, 기준시점)
+# 과거 버전은 데이터 화면의 '주기성 과거 데이터' 목록에 있는 detailPk·detailSn 으로 받는다
+STP = ("15099330", "서울교통공사_1_8호선 역별 일별 시간대별 승객유형별 승하차인원")
 DATA_GO_KR_FILES = [
     ("population", "행정안전부_지역별(행정동) 성별 연령별 주민등록 인구수", "15097972",
-     "uddi:5beebd9e-8733-44f8-817f-9cfa03548b7a",
+     "uddi:5beebd9e-8733-44f8-817f-9cfa03548b7a", "1",
      "지역별(행정동) 성별 연령별 주민등록 인구수_20260831.csv", "2026-08-31"),
+    # D 분석: 역별·일별·시간대별 승객유형(우대권 = 65세 이상 등)별 승하차, 반기별 파일 4개 (2024.7~2026.6)
+    ("subway_type_2024h2", STP[1], STP[0], "uddi:b069b014-093b-4780-912d-e8aec3e4cfe4", "1",
+     "서울교통공사_역별일별시간대별승객유형별승하차_20241231.csv", "2024-07~12"),
+    ("subway_type_2025h1", STP[1], STP[0], "uddi:bef34229-dc1c-4509-8eb4-afd60a9b4be8", "1",
+     "서울교통공사_역별일별시간대별승객유형별승하차_20250630.csv", "2025-01~06"),
+    ("subway_type_2025h2", STP[1], STP[0], "uddi:f7f77ce0-550a-4510-b2f7-cb7892a96e5b", "1",
+     "서울교통공사_역별일별시간대별승객유형별승하차_20251231.csv", "2025-07~12"),
+    ("subway_type_2026h1", STP[1], STP[0], "uddi:5845041d-3a37-4c30-9142-e62d3b8816b8", "1",
+     "서울교통공사_역별일별시간대별승객유형별승하차_20260630.csv", "2026-01~06"),
 ]
+
+# D 분석: 서울 기상관측소(기상청 ASOS 108 = WMO 47108) 일자료. 기상자료개방포털은 로그인이 필요해
+# 같은 관측값을 NOAA 를 거쳐 제공하는 Meteostat 공개 파일을 쓴다 (컬럼: 날짜, 평균·최저·최고기온, 강수, 적설, ...)
+WEATHER = ("weather_seoul_daily", "서울 기상관측소 일자료 (Meteostat, WMO 47108)",
+           "https://bulk.meteostat.net/v2/daily/47108.csv.gz", "meteostat_47108_daily.csv.gz", "")
 
 # 행정동 경계: 통계청 SGIS 경계를 행정안전부 10자리 코드와 맞춰 정리한 공개본
 BOUNDARY = ("dong_boundary", "대한민국 행정동 경계(admdongkor)",
@@ -158,10 +176,10 @@ def get_seoul_sheet(inf_id, order_by, path):
     save_stream(resp, path)
 
 
-def get_data_go_kr(pk, detail_pk, path):
+def get_data_go_kr(pk, detail_pk, path, detail_sn="1"):
     """포털 화면의 '다운로드' 버튼과 같은 순서로 요청한다. 캡차가 요구되면 멈추고 수동 다운로드를 안내한다."""
     info = session.post(f"{DATA_GO_KR}/tcs/dss/selectFileDataDownload.do", data={
-        "publicDataDetailPk": detail_pk, "publicDataPk": pk, "atchFileId": "", "fileDetailSn": "1",
+        "publicDataDetailPk": detail_pk, "publicDataPk": pk, "atchFileId": "", "fileDetailSn": detail_sn,
         "publicDataTyCode": "PR0051"}, timeout=60).json()
     if not info.get("status"):
         raise RuntimeError(f"파일 정보 조회 실패: {info.get('error')}")
@@ -208,9 +226,13 @@ def main():
     for key, name, inf_id, order_by, fname in SEOUL_SHEETS:
         jobs.append((key, name, "서울특별시", f"https://data.seoul.go.kr/dataList/{inf_id}/S/1/datasetView.do",
                      fname, "", lambda p, a=(inf_id, order_by): get_seoul_sheet(*a, p)))
-    for key, name, pk, detail_pk, fname, ref in DATA_GO_KR_FILES:
-        jobs.append((key, name, "행정안전부", f"{DATA_GO_KR}/data/{pk}/fileData.do",
-                     fname, ref, lambda p, a=(pk, detail_pk): get_data_go_kr(*a, p)))
+    for key, name, pk, detail_pk, sn, fname, ref in DATA_GO_KR_FILES:
+        provider = "행정안전부" if key == "population" else "서울교통공사"
+        jobs.append((key, name, provider, f"{DATA_GO_KR}/data/{pk}/fileData.do",
+                     fname, ref, lambda p, a=(pk, detail_pk, sn): get_data_go_kr(a[0], a[1], p, a[2])))
+    key, name, url, fname, ref = WEATHER
+    jobs.append((key, name, "Meteostat (원자료: 기상청 관측, NOAA ISD/GHCN)", url, fname, ref,
+                 lambda p, u=url: get_url(u, p)))
     key, name, url, fname, ref = BOUNDARY
     jobs.append((key, name, "vuski/admdongkor (원자료: 통계청 SGIS)", url, fname, ref, lambda p, u=url: get_url(u, p)))
     key, name, fname = OSM_MASK

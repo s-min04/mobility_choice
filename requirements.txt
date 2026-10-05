@@ -14,3 +14,4 @@ scikit-learn
 shap
 statsmodels
 rasterio
+linearmodels
