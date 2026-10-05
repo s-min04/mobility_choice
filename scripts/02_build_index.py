@@ -8,9 +8,13 @@
     지하철  : 보행 시간 안에 역이 있으면 1
     버스    : 보행 시간 안의 정류소를 지나는 서로 다른 노선 수 / 기준 노선 수 (최대 1)
     따릉이  : 보행 시간 안에 대여소가 있으면 1. 고령자 기준에서는 연령별 실제 이용률 비(β)를 곱한다.
-- MCI = a_지하철 + a_버스 + a_따릉이 (0~3). "실제로 쓸 수 있는 교통수단이 몇 개인가"를 뜻한다.
-- 일반 성인 기준과 고령자(65세 이상) 기준을 따로 계산한다. 두 기준은 보행속도와 따릉이 가중치만 다르다.
+    택시    : 앱 호출을 쓸 수 있는 비율 p 는 어디서나 1, 나머지 (1-p) 는 걸어서 큰길(간선도로)에 닿아야 1.
+              a = p + (1-p) × [보행 시간 안에 간선도로가 있음]
+- MCI = a_지하철 + a_버스 + a_따릉이 + a_택시 (0~4). "실제로 쓸 수 있는 교통수단이 몇 개인가"를 뜻한다.
+- 일반 성인 기준과 고령자(65세 이상) 기준을 따로 계산한다. 두 기준은 보행속도, 따릉이 가중치, 택시 앱 호출 비율만 다르다.
+- 공유 전동킥보드는 위치·연령별 이용 자료가 없고 면허가 필요해 지수에 넣지 않는다 (04_pm_obstruction.py 에서 보행 방해 요인으로 따로 본다).
 - 행정동 값 = 그 동의 거주 가능 격자점 평균.
+- 사각지대 = MCI 가 2 미만인 곳 (고를 수 있는 선택지가 없는 곳).
 
 모든 가정값은 PARAMS 에 모아 두었다. 근거를 확인해야 하는 값은 주석에 (근거 확인 필요) 로 표시했다.
 """
@@ -36,11 +40,19 @@ PARAMS = {
     # 보행속도(m/s). 일반 1.2, 고령자 0.8 (교통약자 보행신호 기준값, 근거 확인 필요)
     "walk_speed": {"general": 1.2, "elderly": 0.8},
     # 수단별로 걸어서 가도 된다고 보는 시간(분)
-    "walk_minutes": {"subway": 10, "bus": 5, "bike": 5},
+    "walk_minutes": {"subway": 10, "bus": 5, "bike": 5, "taxi": 5},
     # 실제 보행경로 길이 / 직선거리 (우회계수, 근거 확인 필요)
     "detour": 1.3,
     # 버스 기준 노선 수: None 이면 일반 성인 기준 서울 격자점의 중앙값을 쓴다
     "bus_target_routes": None,
+    # 택시를 앱으로 부를 수 있는 비율. 일반 성인은 1로 본다.
+    # 고령자는 서울연구원 「2024년 택시 이용 시민만족도 조사」의 60세 이상 앱 호출 비율 19% (기사 재인용, 원문 확인 필요)
+    "taxi_app_share": {"general": 1.0, "elderly": 0.19},
+    # 길에서 빈 택시를 잡을 수 있다고 보는 도로 등급 (OSM highway)
+    "taxi_road_classes": ["trunk", "primary", "secondary"],
+    # 사각지대 기준: 쓸 수 있는 수단이 이 값 미만이면 "고를 수 있는 선택지"가 없는 곳으로 본다.
+    # 선택권은 최소 두 수단 중에서 고를 수 있어야 성립한다 (택시 하나뿐이면 비싼 수단 하나에 묶인 상태).
+    "choice_threshold": 2.0,
 }
 
 
@@ -110,6 +122,16 @@ def load_bike() -> np.ndarray:
     b = b.apply(pd.to_numeric, errors="coerce").dropna()
     b = b[(b["lat"] > 37) & (b["lat"] < 38) & (b["lon"] > 126) & (b["lon"] < 128)]
     return to_points(b, "lon", "lat")
+
+
+def load_major_roads() -> np.ndarray:
+    """간선도로를 20m 간격 점으로 바꾼다 (점까지 거리 ≈ 도로까지 거리)."""
+    data = json.loads((RAW / "osm_major_roads_seoul.json").read_text())
+    cls = set(PARAMS["taxi_road_classes"])
+    lines = [LineString([(p["lon"], p["lat"]) for p in e["geometry"]]) for e in data["elements"]
+             if e["type"] == "way" and e.get("tags", {}).get("highway") in cls and len(e.get("geometry", [])) >= 2]
+    g = gpd.GeoSeries(lines, crs="EPSG:4326").to_crs(CRS).segmentize(20)
+    return g.get_coordinates().to_numpy()
 
 
 def bike_age_factor(pop: pd.DataFrame) -> dict:
@@ -202,6 +224,7 @@ def main():
     subway_xy = load_subway()
     stop_xy, stop_routes, n_routes = load_bus()
     bike_xy = load_bike()
+    road_xy = load_major_roads()
     factor = bike_age_factor(pop)
     print(f"  지하철역 {len(subway_xy)}, 버스정류소 {len(stop_xy)} (노선 {n_routes}), 따릉이 대여소 {len(bike_xy)}")
     print(f"  따릉이 연령 가중치 β(65+) = {factor['beta_65_plus']:.3f}")
@@ -211,6 +234,7 @@ def main():
         grid[f"subway_{prof}"] = within(xy, subway_xy, walk_radius(prof, "subway"))
         grid[f"bus_routes_{prof}"] = bus_route_counts(xy, stop_xy, stop_routes, walk_radius(prof, "bus"))
         grid[f"bike_{prof}"] = within(xy, bike_xy, walk_radius(prof, "bike"))
+        grid[f"taxi_street_{prof}"] = within(xy, road_xy, walk_radius(prof, "taxi"))
 
     hab = grid["habitable"]
     target = PARAMS["bus_target_routes"] or float(np.median(grid.loc[hab, "bus_routes_general"]))
@@ -218,16 +242,21 @@ def main():
     for prof in ["general", "elderly"]:
         grid[f"a_bus_{prof}"] = np.minimum(grid[f"bus_routes_{prof}"] / target, 1.0)
         grid[f"a_bike_{prof}"] = grid[f"bike_{prof}"] * beta[prof]
-        grid[f"mci_{prof}"] = grid[f"subway_{prof}"] + grid[f"a_bus_{prof}"] + grid[f"a_bike_{prof}"]
+        app = PARAMS["taxi_app_share"][prof]
+        grid[f"a_taxi_{prof}"] = app + (1 - app) * grid[f"taxi_street_{prof}"]
+        grid[f"mci_{prof}"] = (grid[f"subway_{prof}"] + grid[f"a_bus_{prof}"] + grid[f"a_bike_{prof}"]
+                               + grid[f"a_taxi_{prof}"])
     print(f"  버스 기준 노선 수 = {target:g}")
 
     # 행정동 집계 (거주 가능 격자점 평균)
     g = grid[hab]
-    cols = [c for c in grid.columns if c.startswith(("subway_", "a_bus_", "a_bike_", "mci_", "bus_routes_"))]
+    cols = [c for c in grid.columns
+            if c.startswith(("subway_", "a_bus_", "a_bike_", "a_taxi_", "taxi_street_", "mci_", "bus_routes_"))]
     agg = g.groupby("adm_cd10")[cols].mean()
-    # 고령자 기준 수단이 1개 미만인 격자점 비율 → 동 안에서 고령자가 고르게 산다고 보고 사각지대 고령인구 추정
-    agg["share_blind_elderly"] = g.assign(b=g["mci_elderly"] < 1).groupby("adm_cd10")["b"].mean()
-    agg["share_blind_general"] = g.assign(b=g["mci_general"] < 1).groupby("adm_cd10")["b"].mean()
+    # 쓸 수 있는 수단이 기준(2개) 미만인 격자점 비율 → 동 안에서 고령자가 고르게 산다고 보고 사각지대 고령인구 추정
+    th = PARAMS["choice_threshold"]
+    agg["share_blind_elderly"] = g.assign(b=g["mci_elderly"] < th).groupby("adm_cd10")["b"].mean()
+    agg["share_blind_general"] = g.assign(b=g["mci_general"] < th).groupby("adm_cd10")["b"].mean()
     agg["n_points"] = g.groupby("adm_cd10").size()
 
     out = dongs.merge(agg, left_on="adm_cd10", right_index=True, how="left")
@@ -242,7 +271,8 @@ def main():
             "walk_radius_m": {p: {m: round(walk_radius(p, m)) for m in PARAMS["walk_minutes"]}
                               for p in PARAMS["walk_speed"]},
             "n_grid": int(len(grid)), "n_habitable": int(hab.sum()),
-            "n_subway": int(len(subway_xy)), "n_bus_stops": int(len(stop_xy)), "n_bike": int(len(bike_xy))}
+            "n_subway": int(len(subway_xy)), "n_bus_stops": int(len(stop_xy)), "n_bike": int(len(bike_xy)),
+            "n_road_points_20m": int(len(road_xy))}
     (OUT / "mci_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2, default=float))
     print(f"저장: {OUT / 'dong_mci.gpkg'} ({len(out)}개 동)")
 

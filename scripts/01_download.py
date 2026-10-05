@@ -39,6 +39,17 @@ SEOUL_FILES = [
      "공공자전거 대여소 정보(26.6월 기준).xlsx", "2026-06"),
     ("bike_usage_monthly", "서울특별시 공공자전거 이용정보(월별)", "OA-15248", "1", "47",
      "서울특별시 공공자전거 이용정보(월별)_26.1-6.csv", "2026-01~06"),
+    # 개인형 이동장치(공유 전동킥보드): 지수에는 넣지 않고 보행 방해 요인으로 따로 본다
+    ("pm_towing_2025h1", "서울시 전동킥보드 견인 현황", "OA-21304", "1", "9",
+     "서울특별시_전동킥보드_견인_현황(25.1~6월).xlsx", "2025-01~06"),
+    ("pm_towing_2025h2", "서울시 전동킥보드 견인 현황", "OA-21304", "1", "10",
+     "서울특별시_전동킥보드_견인_현황(25.7~12월).xlsx", "2025-07~12"),
+    ("pm_devices_2023", "서울시 공유 전동킥보드 운영 현황", "OA-22199", "1", "2",
+     "서울시 공유 전동킥보드 운영 현황_20231018.csv", "2023-10-18"),
+    ("pm_devices_2025feb", "서울시 공유 전동킥보드 운영 현황", "OA-22199", "1", "3",
+     "서울시 민간대여 공유 전동킥보드 기기 현황_25.2월기준.csv", "2025-02"),
+    ("pm_devices_2025dec", "서울시 공유 전동킥보드 운영 현황", "OA-22199", "1", "4",
+     "서울시 민간대여 공유 전동킥보드 기기 현황_25.12월기준.csv", "2025-12"),
 ]
 
 # 서울 열린데이터광장 시트형 데이터: (id, 데이터셋 이름, infId, 정렬 컬럼, 저장 파일명)
@@ -76,6 +87,14 @@ OSM_MASK_QUERY = """
 out geom;
 """
 OSM_MASK = ("osm_nonresidential", "OpenStreetMap 산림·공원·수면 폴리곤 (서울)", "osm_nonresidential_seoul.json")
+
+# 큰길(간선도로): 길에서 택시를 잡을 수 있는 곳의 근사치. 도시고속도로(motorway)는 정차할 수 없어 뺀다
+OSM_ROADS_QUERY = """
+[out:json][timeout:300][bbox:37.41,126.76,37.72,127.19];
+way["highway"~"^(trunk|primary|secondary|tertiary)$"];
+out geom tags;
+"""
+OSM_ROADS = ("osm_major_roads", "OpenStreetMap 간선도로 (trunk·primary·secondary·tertiary)", "osm_major_roads_seoul.json")
 
 session = requests.Session()
 session.headers["User-Agent"] = "Mozilla/5.0 (research; AI-transportation-solution)"
@@ -134,13 +153,13 @@ def get_url(url, path):
     save_stream(session.get(url, stream=True, timeout=600), path)
 
 
-def get_osm_mask(path):
+def get_osm(query, path):
     # Overpass 는 브라우저형 User-Agent 를 거부하고(406), 서버가 바쁘면 504 를 준다 → 미러 순서대로 시도
     headers = {"User-Agent": "AI-transportation-solution/0.1 (data analysis contest)"}
     errors = []
     for url in OVERPASS_URLS:
         try:
-            resp = requests.post(url, data={"data": OSM_MASK_QUERY}, headers=headers, timeout=900)
+            resp = requests.post(url, data={"data": query}, headers=headers, timeout=900)
             resp.raise_for_status()
             path.write_text(json.dumps(resp.json(), ensure_ascii=False))
             return
@@ -168,7 +187,11 @@ def main():
     key, name, url, fname, ref = BOUNDARY
     jobs.append((key, name, "vuski/admdongkor (원자료: 통계청 SGIS)", url, fname, ref, lambda p, u=url: get_url(u, p)))
     key, name, fname = OSM_MASK
-    jobs.append((key, name, "OpenStreetMap contributors", OVERPASS_URLS[0], fname, "", get_osm_mask))
+    jobs.append((key, name, "OpenStreetMap contributors", OVERPASS_URLS[0], fname, "",
+                 lambda p: get_osm(OSM_MASK_QUERY, p)))
+    key, name, fname = OSM_ROADS
+    jobs.append((key, name, "OpenStreetMap contributors", OVERPASS_URLS[0], fname, "",
+                 lambda p: get_osm(OSM_ROADS_QUERY, p)))
 
     old = {}
     if MANIFEST.exists():
