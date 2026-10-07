@@ -1,6 +1,6 @@
 # 고령자 이동선택권: 같은 동네, 다른 선택권
 
-**한겨레 × 숲과나눔 「AI와 함께하는 교통문제 해결을 위한 데이터 분석 공모전」 출품작** · 팀 덜컹덜컹 시골버숭 (유승민, 이일우)
+
 
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/s-min04/mobility_choice/blob/main/notebooks/quickstart.ipynb) · 📄 [분석보고서 PDF](docs/report.pdf)
 
