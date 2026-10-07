@@ -13,6 +13,7 @@ import csv
 import hashlib
 import json
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -155,6 +156,8 @@ SEOUL_SHEETS = [
     ("clinics", "서울시 병의원 위치 정보", "OA-20337", "", "서울시 병의원 위치 정보.csv"),
     # D 분석: 무더위·한파 쉼터 (좌표 EPSG:5186)
     ("climate_shelters", "서울시 기후동행쉼터", "OA-22386", "", "서울시 기후동행쉼터.csv"),
+    # 공식 기준판 지수(19): 노선별 정류장별 시간대별 버스 운행횟수 (2026.9.6~10.2 일별, 약 315MB)
+    ("bus_runs", "서울시 노선별 정류장별 총 버스 운행횟수 정보", "OA-21220", "", "서울시 노선별 정류장별 총 버스 운행횟수 정보.csv"),
 ]
 
 # 공공데이터포털 파일데이터: (id, 데이터셋 이름, publicDataPk, publicDataDetailPk, fileDetailSn, 저장 파일명, 기준시점)
@@ -254,6 +257,22 @@ DEM_TILES = [
 
 OSM_ROADS = ("osm_major_roads", "OpenStreetMap 간선도로 (trunk·primary·secondary·tertiary)", "osm_major_roads_seoul.json")
 
+# 공식 기준판 지수(19): 실제 보행경로 ÷ 직선거리(우회계수)를 재기 위한 보행 도로망 표본.
+# C의 5개 유형마다 확신도가 가장 높은 4개 동의 중심 (각 중심에서 위도 ±0.008°, 경도 ±0.010° 사각형, 약 1.8km)
+WALK_SAMPLES = [
+    ("서초구 서초2동", 37.48882, 127.02791), ("강남구 도곡2동", 37.48821, 127.04965),
+    ("강남구 압구정동", 37.52967, 127.03440), ("서초구 서초4동", 37.49899, 127.01996),
+    ("광진구 중곡2동", 37.55891, 127.08459), ("광진구 중곡3동", 37.56785, 127.08197),
+    ("관악구 신림동", 37.48690, 126.92761), ("광진구 군자동", 37.55307, 127.07368),
+    ("구로구 개봉1동", 37.49988, 126.84988), ("강서구 화곡2동", 37.53228, 126.85437),
+    ("금천구 시흥1동", 37.45289, 126.90015), ("양천구 신정7동", 37.51012, 126.86468),
+    ("광진구 자양2동", 37.52933, 127.08325), ("강동구 암사2동", 37.55738, 127.12324),
+    ("강남구 개포4동", 37.47555, 127.05324), ("영등포구 양평2동", 37.54349, 126.89066),
+    ("종로구 창신3동", 37.57882, 127.01321), ("서대문구 천연동", 37.57121, 126.95714),
+    ("성북구 종암동", 37.59725, 127.03337), ("성동구 응봉동", 37.55099, 127.03398),
+]
+OSM_WALK = ("osm_walk_samples", "OpenStreetMap 보행 가능 도로망 (표본 20개 동)", "osm_walk_samples_seoul.json")
+
 session = requests.Session()
 session.headers["User-Agent"] = "Mozilla/5.0 (research; AI-transportation-solution)"
 
@@ -332,6 +351,28 @@ def get_tmacs(url, path):
     path.write_text(json.dumps(out, ensure_ascii=False))
 
 
+def get_osm_walk(path):
+    """표본 사각형마다 보행 가능한 도로(고속도로·공사 중 제외, foot=no 제외)를 받아 하나의 JSON 으로 저장한다."""
+    out = []
+    for name, lat, lon in WALK_SAMPLES:
+        q = (f'[out:json][timeout:180][bbox:{lat - 0.008},{lon - 0.010},{lat + 0.008},{lon + 0.010}];'
+             'way["highway"]["highway"!~"^(motorway|motorway_link|construction|proposed|raceway)$"]["foot"!="no"];'
+             'out geom;')
+        tmp = path.with_suffix(".tmp.json")
+        for attempt in range(5):  # 공개 Overpass 서버가 바쁘면 504 를 준다 → 기다렸다 다시 시도
+            try:
+                get_osm(q, tmp)
+                break
+            except RuntimeError:
+                if attempt == 4:
+                    raise
+                time.sleep(30 * (attempt + 1))
+        time.sleep(5)
+        out.append({"name": name, "lat": lat, "lon": lon, "elements": json.loads(tmp.read_text())["elements"]})
+        tmp.unlink()
+    path.write_text(json.dumps(out, ensure_ascii=False))
+
+
 def get_osm(query, path):
     # Overpass 는 브라우저형 User-Agent 를 거부하고(406), 서버가 바쁘면 504 를 준다 → 미러 순서대로 시도
     headers = {"User-Agent": "AI-transportation-solution/0.1 (data analysis contest)"}
@@ -378,6 +419,8 @@ def main():
     key, name, url, fname, ref = TMACS
     jobs.append((key, name, "한국교통안전공단 교통안전정보관리시스템(TMACS)", TMACS_PAGE, fname, ref,
                  lambda p, u=url: get_tmacs(u, p)))
+    key, name, fname = OSM_WALK
+    jobs.append((key, name, "OpenStreetMap contributors", OVERPASS_URLS[0], fname, "", get_osm_walk))
     key, name, fname = OSM_ROADS
     jobs.append((key, name, "OpenStreetMap contributors", OVERPASS_URLS[0], fname, "",
                  lambda p: get_osm(OSM_ROADS_QUERY, p)))
