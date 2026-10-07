@@ -40,6 +40,7 @@ STEPS = [
     (20, "20_identification.py", False, "J 식별 강화, S1 범위, 1인당 CO2"),
     (21, "21_medical_access.py", True, "K 의료 목적지 접근"),
     (22, "22_cost_effect.py", False, "L 재배분 비용·효과"),
+    (23, "23_carbon_levers.py", True, "M 탄소 레버: 거리대·출발지별 배출과 감축 여지"),
 ]
 
 
