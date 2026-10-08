@@ -1,6 +1,6 @@
 """전체 분석을 한 줄로 다시 실행한다.
 
-    python run_all.py            # 원본 내려받기(약 5GB)부터 22번까지 전부 (1~2시간)
+    python run_all.py            # 원본 내려받기(약 5GB)부터 24번까지 전부 (1~2시간)
     python run_all.py --quick    # 원본 없이, 저장소에 들어 있는 가공 데이터로 돌아가는 단계만 (약 3분)
     python run_all.py --from 14  # 14번부터 끝까지
     python run_all.py --only 19 20
@@ -41,6 +41,7 @@ STEPS = [
     (21, "21_medical_access.py", True, "K 의료 목적지 접근"),
     (22, "22_cost_effect.py", False, "L 재배분 비용·효과"),
     (23, "23_carbon_levers.py", True, "M 탄소 레버: 거리대·출발지별 배출과 감축 여지"),
+    (24, "24_destination_access.py", True, "N 도착지 분해: 광역 유입 감축 여지의 동·시각·출발지, 목적·종합병원"),
 ]
 
 
