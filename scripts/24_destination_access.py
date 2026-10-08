@@ -246,6 +246,11 @@ def main():
             # 운영비 1대분을 탄소만으로 정당화하려면(가정 없는 손익분기): 평일 매일 몇 건의 유입 차량 이동이 옮겨야 하나
             "trips_per_vehicle_for_1m_won_per_t": veh_year / (per_trip * 1e6),
             "trips_per_vehicle_for_v5_low_cost_283m": veh_year / (per_trip * 283e4)}
+    # 이동선택권 목표로 환산: 고령자 버스 점수 = min(걸음 5분(185m) 안 노선 수 ÷ 7, 1) (02번 정의).
+    # 노선 k개가 늘면 버스 점수가 최대 k/7 오른다. 동 전체가 새 정류장 반경 안이라고 놓은 상한 계산이다.
+    mci_top = n1["mci_elderly"].iloc[:TOP_N]
+    summ["top50_mci_elderly_median"] = mci_top.median()
+    summ["top50_share_reach1_if_routes"] = {k: float((mci_top + k / 7 >= 1).mean()) for k in [1, 2, 3]}
     json.dump(summ, open(TAB / "n_summary.json", "w"), ensure_ascii=False, indent=2, default=float)
     print(json.dumps({k: v for k, v in summ.items() if not isinstance(v, dict)}, ensure_ascii=False, indent=1, default=float))
     fig_dest(n1, hh, n4)

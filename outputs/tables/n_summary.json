@@ -73,5 +73,11 @@
   "t_per_daily_trip_elderly_S1": 0.15463243778813673,
   "ratio_vs_elderly": 9.715281840161943,
   "trips_per_vehicle_for_1m_won_per_t": 124.02122639976623,
-  "trips_per_vehicle_for_v5_low_cost_283m": 43.82375491157818
+  "trips_per_vehicle_for_v5_low_cost_283m": 43.82375491157818,
+  "top50_mci_elderly_median": 0.7243310382485044,
+  "top50_share_reach1_if_routes": {
+    "1": 0.34,
+    "2": 0.5,
+    "3": 0.8
+  }
 }
